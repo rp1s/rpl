@@ -1,0 +1,413 @@
+package main
+
+import (
+	"fmt"
+	"rpl/pkg/sdk"
+	"strings"
+)
+
+const transportModeOSBin = "os.bin"
+
+type transportSubjectMode string
+
+const (
+	transportSubjectNone  transportSubjectMode = "none"
+	transportSubjectModel transportSubjectMode = "model"
+	transportSubjectID    transportSubjectMode = "id"
+)
+
+type transportPlan struct {
+	Model           sdk.Model
+	ModelImportPath string
+	ClientName      string
+	ServerName      string
+	ServiceName     string
+	EnvelopeName    string
+	ResponseName    string
+	Mode            string
+	Methods         []transportMethodPlan
+}
+
+type transportMethodPlan struct {
+	Name             string
+	RequestTypeName  string
+	ResponseTypeName string
+	RequestFields    []transportValue
+	ResultFields     []transportValue
+	CallArgs         []string
+	SignatureArgs    []transportValue
+	SignatureReturns []sdk.TypeRef
+}
+
+type transportValue struct {
+	Name     string
+	Type     sdk.TypeRef
+	JSONName string
+}
+
+func buildTransportPlan(req sdk.GenerateRequest) (*transportPlan, error) {
+	mode := transportModelMode(req.Model)
+	activeMethods := transportActiveModelMethods(req.Model)
+	if mode == "" && len(activeMethods) == 0 {
+		return nil, nil
+	}
+	if mode == "" {
+		mode = transportModeOSBin
+	}
+	if !strings.EqualFold(mode, transportModeOSBin) {
+		return nil, sdk.NewErrorf(localize.Text("transport mode %q пока не поддерживается", "transport mode %q is not supported yet"), mode).
+			WithHint(localize.Text("Сейчас используйте `os.bin` для shell transport через stdin/stdout.", "For now use `os.bin` for stdin/stdout shell transport."))
+	}
+
+	idField, hasID, err := transportFindIDField(req.Model)
+	if err != nil {
+		return nil, err
+	}
+
+	plan := &transportPlan{
+		Model:           req.Model,
+		ModelImportPath: transportModelImportPath(req.File),
+		ClientName:      req.Model.Name + "TransportClient",
+		ServerName:      req.Model.Name + "TransportServer",
+		ServiceName:     req.Model.Name + "TransportService",
+		EnvelopeName:    sdk.LowerCamel(req.Model.Name) + "TransportEnvelope",
+		ResponseName:    sdk.LowerCamel(req.Model.Name) + "TransportResponse",
+		Mode:            mode,
+		Methods:         make([]transportMethodPlan, 0),
+	}
+
+	if transportModelEnabled(req.Model) {
+		plan.Methods = append(plan.Methods, transportAutoMethods(req.Model, hasID, idField)...)
+	}
+
+	for _, method := range activeMethods {
+		item, err := buildTransportCustomMethodPlan(req.Model, method, hasID, idField)
+		if err != nil {
+			return nil, err
+		}
+		plan.Methods = append(plan.Methods, item)
+	}
+
+	return plan, nil
+}
+
+func transportModelImportPath(file sdk.FileContext) string {
+	if strings.TrimSpace(file.GoPackagePath) != "" {
+		return strings.TrimSpace(file.GoPackagePath)
+	}
+	return ".."
+}
+
+func transportModelEnabled(model sdk.Model) bool {
+	_, ok := model.ResolvedAttr("transport")
+	return ok
+}
+
+func transportModelMode(model sdk.Model) string {
+	resolved, ok := model.ResolvedAttr("transport")
+	if !ok {
+		return ""
+	}
+	if mode := modeValue(resolved); mode != "" {
+		return mode
+	}
+	return transportModeOSBin
+}
+
+func transportActiveModelMethods(model sdk.Model) []sdk.Method {
+	methods := make([]sdk.Method, 0)
+	modelEnabled := transportModelEnabled(model)
+	for _, method := range model.Methods {
+		if transportMethodIgnored(method) {
+			continue
+		}
+		if modelEnabled || method.HasRuntimeAffinity("transport") {
+			methods = append(methods, method)
+		}
+	}
+	return methods
+}
+
+func transportAutoMethods(model sdk.Model, hasID bool, idField sdk.Field) []transportMethodPlan {
+	modelType := sdk.TypeRef{Name: "modelpkg." + model.Name}
+	methods := []transportMethodPlan{
+		{
+			Name:             "Put",
+			RequestTypeName:  model.Name + "TransportPutRequest",
+			ResponseTypeName: model.Name + "TransportPutResponse",
+			RequestFields: []transportValue{{
+				Name:     sdk.LowerCamel(model.Name),
+				Type:     modelType,
+				JSONName: sdk.SnakeCase(model.Name),
+			}},
+			ResultFields: []transportValue{{
+				Name:     "Result",
+				Type:     modelType,
+				JSONName: "result",
+			}},
+			SignatureArgs: []transportValue{{
+				Name: sdk.LowerCamel(model.Name),
+				Type: modelType,
+			}},
+			SignatureReturns: []sdk.TypeRef{modelType},
+			CallArgs: []string{
+				"payload." + exportTransportFieldName(sdk.LowerCamel(model.Name)),
+			},
+		},
+		{
+			Name:             "List",
+			RequestTypeName:  model.Name + "TransportListRequest",
+			ResponseTypeName: model.Name + "TransportListResponse",
+			ResultFields: []transportValue{{
+				Name:     "Items",
+				Type:     sdk.TypeRef{Name: "modelpkg." + model.Name, IsList: true},
+				JSONName: "items",
+			}},
+			SignatureReturns: []sdk.TypeRef{{Name: "modelpkg." + model.Name, IsList: true}},
+		},
+	}
+
+	if hasID {
+		idType := idField.Type
+		methods = append(methods,
+			transportMethodPlan{
+				Name:             "GetByID",
+				RequestTypeName:  model.Name + "TransportGetByIDRequest",
+				ResponseTypeName: model.Name + "TransportGetByIDResponse",
+				RequestFields: []transportValue{{
+					Name:     sdk.LowerCamel(idField.Name),
+					Type:     idType,
+					JSONName: sdk.SnakeCase(idField.Name),
+				}},
+				ResultFields: []transportValue{{
+					Name:     "Result",
+					Type:     modelType,
+					JSONName: "result",
+				}},
+				SignatureArgs: []transportValue{{
+					Name: sdk.LowerCamel(idField.Name),
+					Type: idType,
+				}},
+				SignatureReturns: []sdk.TypeRef{modelType},
+				CallArgs: []string{
+					"payload." + exportTransportFieldName(sdk.LowerCamel(idField.Name)),
+				},
+			},
+			transportMethodPlan{
+				Name:             "Delete",
+				RequestTypeName:  model.Name + "TransportDeleteRequest",
+				ResponseTypeName: model.Name + "TransportDeleteResponse",
+				RequestFields: []transportValue{{
+					Name:     sdk.LowerCamel(idField.Name),
+					Type:     idType,
+					JSONName: sdk.SnakeCase(idField.Name),
+				}},
+				SignatureArgs: []transportValue{{
+					Name: sdk.LowerCamel(idField.Name),
+					Type: idType,
+				}},
+				CallArgs: []string{
+					"payload." + exportTransportFieldName(sdk.LowerCamel(idField.Name)),
+				},
+			},
+		)
+	}
+
+	return methods
+}
+
+func buildTransportCustomMethodPlan(model sdk.Model, method sdk.Method, hasID bool, idField sdk.Field) (transportMethodPlan, error) {
+	subject, err := transportMethodSubject(model, method, hasID, idField)
+	if err != nil {
+		return transportMethodPlan{}, err
+	}
+
+	requestFields := make([]transportValue, 0)
+	signatureArgs := make([]transportValue, 0)
+	callArgs := make([]string, 0)
+
+	switch subject {
+	case transportSubjectModel:
+		value := transportValue{
+			Name:     sdk.LowerCamel(model.Name),
+			Type:     sdk.TypeRef{Name: "modelpkg." + model.Name},
+			JSONName: sdk.SnakeCase(model.Name),
+		}
+		requestFields = append(requestFields, value)
+		signatureArgs = append(signatureArgs, value)
+		callArgs = append(callArgs, "payload."+exportTransportFieldName(value.Name))
+	case transportSubjectID:
+		value := transportValue{
+			Name:     sdk.LowerCamel(idField.Name),
+			Type:     idField.Type,
+			JSONName: sdk.SnakeCase(idField.Name),
+		}
+		requestFields = append(requestFields, value)
+		signatureArgs = append(signatureArgs, value)
+		callArgs = append(callArgs, "payload."+exportTransportFieldName(value.Name))
+	}
+
+	for _, param := range method.Params {
+		value := transportValue{
+			Name:     param.Name,
+			Type:     param.Type,
+			JSONName: sdk.SnakeCase(param.Name),
+		}
+		requestFields = append(requestFields, value)
+		signatureArgs = append(signatureArgs, value)
+		callArgs = append(callArgs, "payload."+exportTransportFieldName(param.Name))
+	}
+
+	resultFields := make([]transportValue, 0)
+	signatureReturns := make([]sdk.TypeRef, 0)
+	nonErrorReturns := transportNonErrorReturns(method)
+	for index, result := range nonErrorReturns {
+		name := "Result"
+		jsonName := "result"
+		if len(nonErrorReturns) > 1 {
+			name = fmt.Sprintf("Result%d", index+1)
+			jsonName = sdk.SnakeCase(name)
+		}
+		resultFields = append(resultFields, transportValue{
+			Name:     name,
+			Type:     result,
+			JSONName: jsonName,
+		})
+		signatureReturns = append(signatureReturns, result)
+	}
+
+	return transportMethodPlan{
+		Name:             method.Name,
+		RequestTypeName:  model.Name + "Transport" + method.Name + "Request",
+		ResponseTypeName: model.Name + "Transport" + method.Name + "Response",
+		RequestFields:    requestFields,
+		ResultFields:     resultFields,
+		CallArgs:         callArgs,
+		SignatureArgs:    signatureArgs,
+		SignatureReturns: signatureReturns,
+	}, nil
+}
+
+func transportFindIDField(model sdk.Model) (sdk.Field, bool, error) {
+	var explicit *sdk.Field
+	var fallback *sdk.Field
+	for i := range model.Fields {
+		field := model.Fields[i]
+		attr, ok := field.ResolvedAttr("transport")
+		if ok {
+			for _, item := range attr.Attrs {
+				if item.SubName() == "id" || item.NamedBool("id") {
+					if explicit != nil {
+						return sdk.Field{}, false, sdk.NewErrorf(localize.Text("transport.id() можно оставить только у одного поля модели %q", "transport.id() can only be used on one field of model %q"), model.Name).
+							WithHint(localize.Text("Оставьте `@transport.id()` только у одного поля.", "Keep `@transport.id()` on only one field."))
+					}
+					value := field
+					explicit = &value
+				}
+			}
+		}
+		if fallback == nil && (field.Name == "Id" || field.Name == "ID") {
+			value := field
+			fallback = &value
+		}
+	}
+
+	if explicit != nil {
+		return *explicit, true, nil
+	}
+	if fallback != nil {
+		return *fallback, true, nil
+	}
+	return sdk.Field{}, false, nil
+}
+
+func transportMethodSubject(model sdk.Model, method sdk.Method, hasID bool, idField sdk.Field) (transportSubjectMode, error) {
+	attr, _ := method.ResolvedAttr("transport")
+	modelAttr, _ := model.ResolvedAttr("transport")
+
+	subject := transportSubjectNone
+	if subjectValue, ok := attr.Value("subject"); ok {
+		subject = transportSubjectMode(strings.ToLower(strings.TrimSpace(subjectValue.String())))
+	}
+	if subject == transportSubjectNone {
+		if subjectValue, ok := modelAttr.Value("subject"); ok {
+			subject = transportSubjectMode(strings.ToLower(strings.TrimSpace(subjectValue.String())))
+		}
+	}
+
+	modelBinding := attrEnabled(attr, "model") || attrEnabled(modelAttr, "model")
+	if !modelBinding && subject != transportSubjectNone {
+		return transportSubjectNone, sdk.NewErrorf(localize.Text("transport method %q использует subject без `@transport.Model()`", "transport method %q uses a subject without `@transport.Model()`"), method.Name).
+			WithHint(localize.Text("Добавьте `@transport.Model()` на метод или на модель, либо уберите `subject`.", "Add `@transport.Model()` on the method or model, or remove `subject`."))
+	}
+	if !modelBinding {
+		return transportSubjectNone, nil
+	}
+
+	if subject == transportSubjectNone {
+		if hasID {
+			subject = transportSubjectID
+		} else {
+			subject = transportSubjectModel
+		}
+	}
+	if subject == transportSubjectID && !hasID {
+		return transportSubjectNone, sdk.NewErrorf(localize.Text("transport method %q требует поле идентификатора для subject=id", "transport method %q requires an identifier field for subject=id"), method.Name).
+			WithHint(localize.Text("Добавьте поле `Id` или пометьте нужное поле как `@transport.id()`.", "Add an `Id` field or mark the correct field with `@transport.id()`."))
+	}
+	_ = idField
+	return subject, nil
+}
+
+func transportNonErrorReturns(method sdk.Method) []sdk.TypeRef {
+	if len(method.Returns) == 0 {
+		return nil
+	}
+	items := make([]sdk.TypeRef, 0, len(method.Returns))
+	for _, result := range method.Returns {
+		if result.IsError() {
+			continue
+		}
+		items = append(items, result)
+	}
+	return items
+}
+
+func attrNamedBool(attr sdk.ResolvedAttr, name string) bool {
+	value, ok := attr.Value(name)
+	return ok && value.BoolValue()
+}
+
+func attrEnabled(attr sdk.ResolvedAttr, name string) bool {
+	if attrNamedBool(attr, name) {
+		return true
+	}
+	for _, item := range attr.Attrs {
+		if strings.EqualFold(strings.TrimSpace(item.SubName()), name) {
+			return true
+		}
+	}
+	return false
+}
+
+func transportMethodIgnored(method sdk.Method) bool {
+	for _, attr := range append(append([]sdk.Attr(nil), method.RuntimeAttrs...), method.Attrs...) {
+		if attr.Matches("transport.ignore") || attr.SubName() == "ignore" {
+			return true
+		}
+		value, ok := attr.Named("ignore")
+		if !ok {
+			continue
+		}
+		if value.Kind == "bool" {
+			if value.BoolValue() {
+				return true
+			}
+			continue
+		}
+		if strings.TrimSpace(value.String()) != "" {
+			return true
+		}
+	}
+	return false
+}
