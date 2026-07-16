@@ -6,6 +6,8 @@ BUILD_DIR := build
 CMD_PATH := ./cmd
 FINGERPRINT_CMD_PATH := ./cmd/fingerprint
 GOCACHE ?= /tmp/rpl-go-build
+FINGERPRINT ?=
+RPL_LDFLAGS ?= $(if $(strip $(FINGERPRINT)),-X rpl/internal/version.Fingerprint=$(FINGERPRINT),)
 INSTALL_DIR ?= $(HOME)/.local/bin
 ATTR_SOURCE_DIR := $(MODULE_DIR)/attrs
 PROFILE ?= $(if $(wildcard $(HOME)/.zshrc),$(HOME)/.zshrc,$(if $(wildcard $(HOME)/.bashrc),$(HOME)/.bashrc,$(HOME)/.profile))
@@ -30,6 +32,7 @@ help:
 	@echo "  make build           # clean + build all release targets with attrs + fingerprint into build/"
 	@echo "  make build-all"
 	@echo "  make build-host      # clean + build current platform with attrs + fingerprint into build/"
+	@echo "  make build-host FINGERPRINT=<hash>  # create an optional device-locked CLI build"
 	@echo "  make install"
 	@echo "  make uninstall"
 	@echo "  make test"
@@ -67,7 +70,7 @@ build-target:
 	out_dir="$(CURDIR)/$(BUILD_DIR)/$$goos-$$goarch"; \
 	mkdir -p "$$out_dir"; \
 	echo "Building $(APP_NAME) for $$goos/$$goarch"; \
-	GOCACHE="$(GOCACHE)" GOOS="$$goos" GOARCH="$$goarch" "$(GO)" -C "$(MODULE_DIR)" build -o "$$out_dir/$(APP_NAME)$$ext" "$(CMD_PATH)"; \
+	GOCACHE="$(GOCACHE)" GOOS="$$goos" GOARCH="$$goarch" "$(GO)" -C "$(MODULE_DIR)" build $(if $(strip $(RPL_LDFLAGS)),-ldflags "$(RPL_LDFLAGS)",) -o "$$out_dir/$(APP_NAME)$$ext" "$(CMD_PATH)"; \
 	"$(MAKE)" --no-print-directory build-attrs-target GOOS_TARGET="$$goos" GOARCH_TARGET="$$goarch" OUTPUT_ROOT="$$out_dir"; \
 	"$(MAKE)" --no-print-directory build-fingerprint-target GOOS_TARGET="$$goos" GOARCH_TARGET="$$goarch"; \
 	echo "Built $$out_dir"
