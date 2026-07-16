@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<attr>
+  <name>std</name>
+  <author>rpl</author>
+  <version>1.0.0</version>
+  <displayName>Standard Attrs</displayName>
+  <description>Documents built-in standard attrs like group, comment, and ignore</description>
+  <entry>attr</entry>
+  <sdkVersion>2</sdkVersion>
+</attr>

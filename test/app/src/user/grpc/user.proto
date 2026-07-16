@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package grpc;
+
+option go_package = "m/src/user/grpc;grpc";
+
+message UserMessage {
+	int64 id = 1;
+	string name = 2;
+	string phone = 3;
+}
+
+message UserGetByIDRequest {
+	int64 id = 1;
+}
+
+message UserDeleteRequest {
+	int64 id = 1;
+}
+
+message UserDeleteResponse {}
+
+message UserListRequest {}
+
+message UserListResponse {
+	repeated UserMessage items = 1;
+}
+
+message UserStringRequest {}
+
+message UserStringResponse {
+	string result = 1;
+}
+
+service UserService {
+	rpc Put (UserMessage) returns (UserMessage);
+	rpc GetByID (UserGetByIDRequest) returns (UserMessage);
+	rpc Delete (UserDeleteRequest) returns (UserDeleteResponse);
+	rpc List (UserListRequest) returns (UserListResponse);
+	rpc String (UserStringRequest) returns (UserStringResponse);
+}

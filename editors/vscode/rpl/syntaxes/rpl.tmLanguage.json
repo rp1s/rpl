@@ -1,0 +1,88 @@
+{
+  "name": "RPL",
+  "scopeName": "source.rpl",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#booleans" },
+    { "include": "#attrs" },
+    { "include": "#keywords" },
+    { "include": "#types" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.rpl",
+          "match": "//.*$"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.rpl",
+          "begin": "\"",
+          "beginCaptures": {
+            "0": { "name": "punctuation.definition.string.begin.rpl" }
+          },
+          "end": "\"",
+          "endCaptures": {
+            "0": { "name": "punctuation.definition.string.end.rpl" }
+          },
+          "patterns": [
+            {
+              "name": "constant.character.escape.rpl",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.rpl",
+          "match": "\\b\\d+(?:\\.\\d+)?\\b"
+        }
+      ]
+    },
+    "booleans": {
+      "patterns": [
+        {
+          "name": "constant.language.boolean.rpl",
+          "match": "\\b(?:true|false)\\b"
+        }
+      ]
+    },
+    "attrs": {
+      "patterns": [
+        {
+          "name": "entity.other.attribute-name.rpl",
+          "match": "@[A-Za-z_][A-Za-z0-9_.]*"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.rpl",
+          "match": "\\b(?:target|import|attrs|runtimes|model|field|func|return)\\b"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "storage.type.primitive.rpl",
+          "match": "\\b(?:string|bool|byte|int(?:8|16|32|64)?|uint(?:8|16|32|64)?|float(?:32|64)|time\\.Time)\\b"
+        },
+        {
+          "name": "entity.name.type.rpl",
+          "match": "\\b[A-Z][A-Za-z0-9_]*\\b"
+        }
+      ]
+    }
+  }
+}

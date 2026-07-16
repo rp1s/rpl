@@ -1,0 +1,29 @@
+package user
+
+attrs (
+	"rpl:grpc"
+	"rpl:sql"
+	"rpl:std"
+	"rpl:validate"
+)
+
+@grpc()
+@sql(db: "postgres", table: "user")
+model User {
+	Id int
+	{
+		@sql(unique)
+		@grpc.id()
+	}
+
+	Name string
+	{
+		@validate(min: 2, max: 33) // validate min 2, max 33
+	}
+	Phone string
+	{
+		@validate(phone)
+	}
+
+	func String return (User.Name)
+}

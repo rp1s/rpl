@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config>
+  <runtimes>
+    <directory>.rpl/attrs</directory>
+  </runtimes>
+  <localization>
+    <language>ru</language>
+    <use_color>true</use_color>
+  </localization>
+  <author_data>
+    <author_name>rpl</author_name>
+  </author_data>
+</config>
