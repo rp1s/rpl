@@ -545,7 +545,7 @@ function activate(context) {
         { label: "$(refresh) Перезапустить runtime", description: "Перезапуск фонового процесса", command: "rpl.restartRuntime" }
       ];
       const selected = await vscode.window.showQuickPick(actions, {
-        title: "RPL — центр действий",
+        title: "RPL - центр действий",
         placeHolder: "Выберите действие для текущей схемы",
         matchOnDescription: true
       });
@@ -558,7 +558,7 @@ function activate(context) {
       await validateDocument(document, client, diagnostics, output, status);
       const count = (diagnostics.get(document.uri) || []).length;
       if (count === 0) vscode.window.showInformationMessage("RPL: схема корректна.");
-      else vscode.window.showWarningMessage(`RPL: найдено проблем — ${count}.`);
+      else vscode.window.showWarningMessage(`RPL: найдено проблем - ${count}.`);
     }),
     vscode.commands.registerCommand("rpl.configureOutput", async (uri) => {
       const document = await resolveRplDocument(uri);

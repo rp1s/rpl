@@ -436,8 +436,8 @@ func (model *ModelAST) FieldNames() []string {
 // FieldAttrs возвращает все поля модели вместе с их атрибутами.
 // Ничего не принимает.
 // Возвращает срез FieldAttrs, где:
-// Field — это само поле,
-// Attrs — это все атрибуты этого поля.
+// Field - это само поле,
+// Attrs - это все атрибуты этого поля.
 func (model *ModelAST) FieldAttrs() []FieldAttrs {
 	if model == nil {
 		return nil

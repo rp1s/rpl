@@ -236,7 +236,7 @@ func renderModelSection(file *ast.File, model *ast.ModelAST) string {
 			fieldDetails = append(fieldDetails, "methods: "+renderMethods(file, field.Methods))
 		}
 		if len(fieldDetails) > 0 {
-			builder.WriteString(" — ")
+			builder.WriteString(" - ")
 			builder.WriteString(strings.Join(fieldDetails, "; "))
 		}
 		builder.WriteString("\n")

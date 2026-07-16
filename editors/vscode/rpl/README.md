@@ -24,13 +24,13 @@
 
 ## Команды
 
-- `RPL: Show Actions` — центр основных действий;
-- `RPL: Compile Package` — `rpl run <schema> out <dir>`;
-- `RPL: Check Schema` — немедленная проверка текущей схемы;
-- `RPL: Generate Documentation` — `rpl docs <schema>` и открытие README;
-- `RPL: Auto Set Imports` — установка attrs и импортов;
-- `RPL: Show Toolchain Status` — версия CLI, runtime и количество attrs;
-- `RPL: Select CLI Binary` — выбор бинаря без ручного редактирования settings;
+- `RPL: Show Actions` - центр основных действий;
+- `RPL: Compile Package` - `rpl run <schema> out <dir>`;
+- `RPL: Check Schema` - немедленная проверка текущей схемы;
+- `RPL: Generate Documentation` - `rpl docs <schema>` и открытие README;
+- `RPL: Auto Set Imports` - установка attrs и импортов;
+- `RPL: Show Toolchain Status` - версия CLI, runtime и количество attrs;
+- `RPL: Select CLI Binary` - выбор бинаря без ручного редактирования settings;
 - `RPL: Restart Runtime`, `RPL: Refresh Attr Catalog`, `RPL: Open Output`.
 
 ## Установка toolchain
@@ -44,14 +44,14 @@
 
 ## Настройки
 
-- `rpl.binaryPath` — путь к RPL CLI;
-- `rpl.enableDiagnostics` — живая диагностика;
-- `rpl.enableCompletions` — completion provider;
-- `rpl.autoSetImportsOnSave` — attrs и imports при сохранении;
-- `rpl.formatOnSave` — форматирование при сохранении;
-- `rpl.enableCodeLens` — действия над моделями;
-- `rpl.showStatusBar` — состояние RPL в status bar;
-- `rpl.enableTaskProvider` — автоматические VS Code Tasks.
+- `rpl.binaryPath` - путь к RPL CLI;
+- `rpl.enableDiagnostics` - живая диагностика;
+- `rpl.enableCompletions` - completion provider;
+- `rpl.autoSetImportsOnSave` - attrs и imports при сохранении;
+- `rpl.formatOnSave` - форматирование при сохранении;
+- `rpl.enableCodeLens` - действия над моделями;
+- `rpl.showStatusBar` - состояние RPL в status bar;
+- `rpl.enableTaskProvider` - автоматические VS Code Tasks.
 
 ## Локальная сборка
 

@@ -23,9 +23,9 @@ rpl docs src/main.rpl
 
 - Model attrs: `@grpc`, `@sql(db: "postgres", table: "user")`
 - Fields:
-  - `Id int` — attrs: `@sql(unique)`; methods: `String() -> string`
-  - `Name string` — attrs: `@validate(min: 2, max: 33)`
-  - `Phone string` — attrs: `@validate(phone)`
+  - `Id int` - attrs: `@sql(unique)`; methods: `String() -> string`
+  - `Name string` - attrs: `@validate(min: 2, max: 33)`
+  - `Phone string` - attrs: `@validate(phone)`
 
 ## Generated Files
 
