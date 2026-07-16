@@ -1,0 +1,17 @@
+package mega
+
+target(lang: golang)
+
+attrs (
+    "rpl:grpc"
+    "rpl:sql"
+    "rpl:redis"
+    "rpl:std"
+    "rpl:validate"
+)
+
+@comment("Reusable profile model shared inside the showcase package.")
+model Profile {
+    DisplayName string @validate(min: 2, max: 64)
+    Bio string @validate(maxLen: 280)
+}

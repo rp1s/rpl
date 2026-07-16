@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<attr>
+  <name>grpc</name>
+  <author>rpl</author>
+  <version>1.0.0</version>
+  <displayName>gRPC Attr</displayName>
+  <description>Generates .proto files, protobuf Go code, gRPC stubs, and conversion helpers</description>
+  <entry>attr</entry>
+  <sdkVersion>2</sdkVersion>
+</attr>

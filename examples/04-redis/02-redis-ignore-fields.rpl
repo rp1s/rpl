@@ -1,0 +1,14 @@
+target(lang: golang)
+
+attrs (
+    "rpl:redis"
+    "rpl:std"
+)
+
+@redis(db: "cache", table: "viewers", ttl: 30)
+model LiveViewer {
+    Id string @redis(unique: true)
+    ScreenName string
+    DebugState string @redis(ignore: true)
+    InternalMemo string @ignore("redis")
+}

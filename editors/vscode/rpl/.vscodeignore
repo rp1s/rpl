@@ -1,0 +1,4 @@
+node_modules
+*.vsix
+src/*.test.js
+.DS_Store

@@ -1,0 +1,11 @@
+package account
+
+target(lang: golang)
+
+func User {
+    func Summary return (string)
+}
+
+func Profile.DisplayName {
+    func Slug return (string)
+}

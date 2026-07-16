@@ -1,0 +1,26 @@
+target(lang: golang)
+
+attrs (
+    "rpl:std"
+)
+
+@comment("Public user profile with hidden internal fields.")
+model User {
+    Id int
+
+    Name string
+    {
+        @comment("Display name shown in the UI.")
+        @group("public")
+    }
+
+    Email string @group("private")
+
+    Secret string
+    {
+        @ignore("grpc", "sql", "redis")
+    }
+    (
+        func Mask return (string)
+    )
+}

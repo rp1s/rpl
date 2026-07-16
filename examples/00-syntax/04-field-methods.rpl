@@ -1,0 +1,10 @@
+target(lang: golang)
+
+model User {
+    Email string
+}
+
+func User.Email {
+    func Domain return (string)
+    func Normalized return (string)
+}

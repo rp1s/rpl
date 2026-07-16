@@ -1,0 +1,8 @@
+package account
+
+target(lang: golang)
+
+model Profile {
+    DisplayName string
+    Bio string
+}

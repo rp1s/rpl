@@ -1,0 +1,15 @@
+target(lang: golang)
+
+attrs (
+    "rpl:grpc"
+)
+
+@grpc()
+model User {
+    Id int
+    {
+        @grpc.id()
+    }
+
+    Name string
+}

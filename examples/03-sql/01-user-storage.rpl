@@ -1,0 +1,38 @@
+target(lang: golang)
+
+import (
+	time "time"
+)
+
+attrs (
+	"rpl:sql"
+	"rpl:std"
+	"rpl:validate"
+)
+
+@comment("Persistent application user.")
+@sql(db: "postgres", table: "users")
+model User {
+	Id int
+	{
+		@sql(primaryKey: true)
+	}
+	Email string
+	{
+		@sql(unique: true)
+		@validate(email)
+	}
+	Name string
+	{
+		@sql(index: true)
+		@validate(min: 2, max: 64)
+	}
+	CreatedAt time.Time
+	{
+		@sql(default: "now")
+	}
+	UpdatedAt time.Time
+	{
+		@sql(default: "now", updatedAt: true)
+	}
+}

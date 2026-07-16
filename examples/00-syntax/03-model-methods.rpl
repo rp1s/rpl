@@ -1,0 +1,11 @@
+target(lang: golang)
+
+model User {
+    FirstName string
+    LastName string
+}
+
+func User {
+    func DisplayName return (string)
+    func IsNamed return (bool)
+}

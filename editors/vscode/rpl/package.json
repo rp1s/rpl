@@ -1,0 +1,299 @@
+{
+  "name": "rpl-language-support",
+  "displayName": "RPL Language Support",
+  "description": "Полная IDE-интеграция RPL: генерация, диагностика, attrs, CodeLens, навигация и toolchain UX.",
+  "version": "0.6.0",
+  "publisher": "rpl",
+  "license": "Apache-2.0",
+  "icon": "media/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rp1s/rpl"
+  },
+  "homepage": "https://github.com/rp1s/rpl",
+  "bugs": {
+    "url": "https://github.com/rp1s/rpl/issues"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "scripts": {
+    "test": "node --test src/*.test.js"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "rpl",
+    "schema",
+    "grpc",
+    "sql",
+    "dsl"
+  ],
+  "activationEvents": [
+    "onLanguage:rpl",
+    "onCommand:rpl.compilePackage",
+    "onCommand:rpl.autoSetImports",
+    "onCommand:rpl.insertAttrsBlock",
+    "onCommand:rpl.insertImportBlock",
+    "onCommand:rpl.insertModelScaffold",
+    "onCommand:rpl.restartRuntime",
+    "onCommand:rpl.refreshAttrs",
+    "onCommand:rpl.showMenu",
+    "onCommand:rpl.checkDocument",
+    "onCommand:rpl.generateDocs",
+    "onCommand:rpl.showToolchain",
+    "onCommand:rpl.selectBinary",
+    "onCommand:rpl.openOutput",
+    "onCommand:rpl.configureOutput",
+    "onView:rpl.workspace"
+  ],
+  "main": "./src/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "rpl",
+        "aliases": [
+          "RPL",
+          "rpl"
+        ],
+        "extensions": [
+          ".rpl"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "rpl",
+        "scopeName": "source.rpl",
+        "path": "./syntaxes/rpl.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "rpl.compilePackage",
+        "title": "RPL: Compile Package",
+        "icon": "$(play)"
+      },
+      {
+        "command": "rpl.autoSetImports",
+        "title": "RPL: Auto Set Imports"
+      },
+      {
+        "command": "rpl.insertAttrsBlock",
+        "title": "RPL: Insert attrs block"
+      },
+      {
+        "command": "rpl.insertImportBlock",
+        "title": "RPL: Insert import block"
+      },
+      {
+        "command": "rpl.insertModelScaffold",
+        "title": "RPL: Insert model scaffold"
+      },
+      {
+        "command": "rpl.restartRuntime",
+        "title": "RPL: Restart Runtime"
+      },
+      {
+        "command": "rpl.refreshAttrs",
+        "title": "RPL: Refresh Attr Catalog",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "rpl.showMenu",
+        "title": "RPL: Show Actions"
+      },
+      {
+        "command": "rpl.checkDocument",
+        "title": "RPL: Check Schema",
+        "icon": "$(check-all)"
+      },
+      {
+        "command": "rpl.generateDocs",
+        "title": "RPL: Generate Documentation"
+      },
+      {
+        "command": "rpl.showToolchain",
+        "title": "RPL: Show Toolchain Status"
+      },
+      {
+        "command": "rpl.selectBinary",
+        "title": "RPL: Select CLI Binary"
+      },
+      {
+        "command": "rpl.openOutput",
+        "title": "RPL: Open Output"
+      },
+      {
+        "command": "rpl.configureOutput",
+        "title": "RPL: Configure Generation Output"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "rpl.workspace",
+          "name": "RPL",
+          "when": "workspaceFolderCount != 0"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "rpl.workspace",
+        "contents": "Откройте рабочую папку с `.rpl` схемами.\n[Проверить RPL toolchain](command:rpl.showToolchain)"
+      }
+    ],
+    "taskDefinitions": [
+      {
+        "type": "rpl",
+        "required": [
+          "command",
+          "schema"
+        ],
+        "properties": {
+          "command": {
+            "type": "string",
+            "enum": [
+              "generate",
+              "docs",
+              "format"
+            ],
+            "description": "Действие RPL."
+          },
+          "schema": {
+            "type": "string",
+            "description": "Путь к .rpl схеме."
+          }
+        }
+      }
+    ],
+    "submenus": [
+      {
+        "id": "rpl.editor.menu",
+        "label": "RPL"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "submenu": "rpl.editor.menu",
+          "group": "navigation",
+          "when": "resourceLangId == rpl"
+        }
+      ],
+      "rpl.editor.menu": [
+        {
+          "command": "rpl.compilePackage",
+          "group": "1_main"
+        },
+        {
+          "command": "rpl.autoSetImports",
+          "group": "1_main"
+        },
+        {
+          "command": "rpl.checkDocument",
+          "group": "1_main"
+        },
+        {
+          "command": "rpl.generateDocs",
+          "group": "1_main"
+        },
+        {
+          "command": "rpl.configureOutput",
+          "group": "1_main"
+        },
+        {
+          "command": "rpl.insertAttrsBlock",
+          "group": "2_blocks"
+        },
+        {
+          "command": "rpl.insertImportBlock",
+          "group": "2_blocks"
+        },
+        {
+          "command": "rpl.insertModelScaffold",
+          "group": "2_blocks"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "rpl.compilePackage",
+          "group": "navigation@1",
+          "when": "resourceLangId == rpl"
+        },
+        {
+          "command": "rpl.checkDocument",
+          "group": "navigation@2",
+          "when": "resourceLangId == rpl"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "rpl.refreshAttrs",
+          "group": "navigation",
+          "when": "view == rpl.workspace"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "rpl.compilePackage",
+          "group": "inline",
+          "when": "view == rpl.workspace && viewItem == rplSchema"
+        },
+        {
+          "command": "rpl.generateDocs",
+          "group": "rpl",
+          "when": "view == rpl.workspace && viewItem == rplSchema"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "RPL",
+      "properties": {
+        "rpl.binaryPath": {
+          "type": "string",
+          "default": "rpl",
+          "description": "Путь до бинаря RPL CLI, который используется для диагностики и каталога attrs."
+        },
+        "rpl.enableDiagnostics": {
+          "type": "boolean",
+          "default": true,
+          "description": "Включить живую диагностику для файлов .rpl."
+        },
+        "rpl.enableCompletions": {
+          "type": "boolean",
+          "default": true,
+          "description": "Включить автодополнение ключевых слов и attrs для файлов RPL."
+        },
+        "rpl.autoSetImportsOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Автоматически подставлять недостающие attrs и import при сохранении .rpl."
+        },
+        "rpl.formatOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Автоматически форматировать .rpl при сохранении через встроенный formatter RPL."
+        },
+        "rpl.enableCodeLens": {
+          "type": "boolean",
+          "default": true,
+          "description": "Показывать Generate, Check и Docs прямо над моделями RPL."
+        },
+        "rpl.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Показывать состояние RPL toolchain и диагностики в строке состояния."
+        },
+        "rpl.enableTaskProvider": {
+          "type": "boolean",
+          "default": true,
+          "description": "Автоматически добавлять Generate, Docs и Format в VS Code Tasks для найденных RPL-схем."
+        }
+      }
+    }
+  }
+}
