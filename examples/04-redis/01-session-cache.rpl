@@ -1,0 +1,20 @@
+target(lang: golang)
+
+import (
+    "time"
+)
+
+attrs (
+    "rpl:redis"
+    "rpl:std"
+)
+
+@comment("Short-lived session stored in Redis.")
+@redis(db: "cache", table: "sessions", ttl: 3600)
+model Session {
+    Id string @redis(unique: true)
+    UserId int
+    Token string @redis(unique: true)
+    IssuedAt time.Time
+    RefreshAfter string @redis(default: "15m")
+}

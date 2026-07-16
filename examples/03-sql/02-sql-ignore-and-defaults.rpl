@@ -1,0 +1,15 @@
+target(lang: golang)
+
+attrs (
+    "rpl:sql"
+    "rpl:std"
+)
+
+@sql(db: "postgres", table: "api_keys")
+model ApiKey {
+    Id int @sql(primaryKey: true)
+    Token string @sql(unique: true)
+    Scope string = "read"
+    InternalNote string @sql(ignore: true)
+    DebugTrace string @ignore("sql")
+}

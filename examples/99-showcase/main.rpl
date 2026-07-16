@@ -1,0 +1,99 @@
+package mega
+
+target(lang: golang)
+
+import (
+    "time"
+)
+
+attrs (
+    "rpl:grpc"
+    "rpl:sql"
+    "rpl:redis"
+    "rpl:std"
+    "rpl:validate"
+)
+
+@comment("Main user model that demonstrates gRPC, SQL, validation, grouping, comments, and ignore rules.")
+@grpc()
+@sql(db: "postgres", table: "users")
+model User {
+    Id int
+    {
+        @sql(unique: true)
+        @grpc.id()
+    }
+
+    Email string
+    {
+        @sql(unique: true)
+        @validate(email: true, minLen: 6, maxLen: 160)
+        @group("public")
+        @comment("Public login address.")
+    }
+
+    Name string = "anonymous"
+    {
+        @sql(index: true)
+        @validate(min: 2, max: 64)
+        @group("public")
+        @comment("Display name shown to other users.")
+    }
+    (
+        func Slug return (string)
+    )
+
+    Profile Profile
+
+    Phone string
+    {
+        @validate(phone: true)
+        @group("private")
+    }
+
+    PasswordHash string
+    {
+        @validate(hash: "password", minLen: 8, maxLen: 256)
+        @ignore("grpc")
+    }
+
+    InternalFlags string @grpc(ignore: true)
+    TransientNote string @sql(ignore: true)
+
+    Website string
+    {
+        @validate(url: true)
+    }
+
+    CreatedAt time.Time
+    {
+        @sql(default: "now")
+        @validate(past: true)
+    }
+
+    UpdatedAt time.Time
+    {
+        @sql(default: "now", updatedAt: true)
+    }
+
+    func String return (string)
+    func Greeting (prefix string) return (string)
+}
+
+@comment("Short-lived session cached in Redis.")
+@redis(db: "cache", table: "sessions", ttl: 3600)
+model Session {
+    Id string @redis(unique: true)
+    UserId int
+    Token string @redis(unique: true)
+    Region string = "eu"
+    RefreshAfter string @redis(default: "15m")
+    DebugState string @redis(ignore: true)
+    InternalMemo string @ignore("redis")
+}
+
+model AuditEntry {
+    Actor UserPublic
+    Subject UserPrivate
+    HappenedAt time.Time
+}

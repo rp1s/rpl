@@ -1,0 +1,7 @@
+target(lang: golang)
+
+model User {
+	Id int
+	Name string
+	Active bool = true
+}

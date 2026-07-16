@@ -1,0 +1,14 @@
+package billing
+
+target(lang: golang)
+
+import (
+    "time"
+)
+
+model Invoice {
+    Id int
+    Number string
+    CreatedAt time.Time
+    Paid bool = false
+}

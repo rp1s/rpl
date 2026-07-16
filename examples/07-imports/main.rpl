@@ -1,0 +1,17 @@
+target(lang: golang)
+
+import (
+    "shared.rpl"
+    "time"
+)
+
+attrs (
+    "rpl:std"
+)
+
+@comment("Order imports a model from another RPL file.")
+model Order {
+    Id int
+    Shipping Address
+    CreatedAt time.Time
+}

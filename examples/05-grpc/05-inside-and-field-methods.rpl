@@ -1,0 +1,22 @@
+target(lang: golang)
+
+import (
+    "net/http"
+)
+
+attrs (
+    "rpl:grpc"
+)
+
+@grpc()
+model RequestContext {
+    Name string
+    (
+        func Upper return (string)
+    )
+
+    Request http.Request? @grpc(mode: "inside")
+    (
+        func Method return (string) @grpc.Inside()
+    )
+}

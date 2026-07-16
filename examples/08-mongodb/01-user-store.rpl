@@ -1,0 +1,23 @@
+target(lang: golang)
+
+import (
+    "time"
+)
+
+attrs (
+    "rpl:mongodb"
+    "rpl:std"
+)
+
+@comment("MongoDB-backed user storage with generated collection, indexes, BSON converters, and CRUD helpers.")
+@mongodb(db: "mongodb", collection: "users")
+model User {
+    ID string @mongodb(objectId: true, unique: true)
+    Email string @mongodb(unique: true, index: true, search: true)
+    Username string @mongodb(index: true, search: true, sort: true)
+    Status string @mongodb(index: true, sort: true)
+    Tags []string @mongodb(search: true)
+    CreatedAt time.Time @mongodb(default: "now", sort: true)
+    UpdatedAt time.Time @mongodb(default: "now", updatedAt: true, sort: true)
+    CacheKey string @ignore("mongodb")
+}

@@ -1,0 +1,17 @@
+target(lang: golang)
+
+attrs (
+    "rpl:std"
+    "rpl:validate"
+)
+
+model User {
+    Name string @group("req") @validate(min: 1, max: 64)
+    Age int @group("req")
+    Bio string @group("public") @validate(maxLen: 280)
+}
+
+model AuditEntry {
+    Actor UserReq
+    Snapshot UserPublic
+}

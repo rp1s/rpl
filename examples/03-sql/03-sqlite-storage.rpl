@@ -1,0 +1,27 @@
+target(lang: golang)
+
+import (
+    "time"
+)
+
+attrs (
+    "rpl:sql"
+    "rpl:validate"
+)
+
+model Preferences {
+    Theme string
+    Language string
+}
+
+@sql(db: "sqlite", table: "players")
+model Player {
+    Id int @sql(primaryKey: true)
+    Name string @sql(index: true) @validate(min: 2, max: 64)
+    Tags []string
+    Preferences Preferences
+    CreatedAt time.Time @sql(default: "now")
+    UpdatedAt time.Time @sql(default: "now", updatedAt: true)
+}
+
+// Это вайб проект если что

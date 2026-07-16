@@ -1,0 +1,15 @@
+target(lang: golang)
+
+import (
+    "time"
+)
+
+attrs (
+    "rpl:validate"
+)
+
+model Credentials {
+    Password string @validate(minLen: 8, maxLen: 128, hash: "password")
+    Website string @validate(url)
+    IssuedAt time.Time @validate(past)
+}

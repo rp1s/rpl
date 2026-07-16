@@ -1,0 +1,13 @@
+package account
+
+target(lang: golang)
+
+attrs (
+    "rpl:std"
+)
+
+model User {
+    Id int
+    Profile Profile
+    Status string @group("public")
+}

@@ -1,0 +1,19 @@
+package mega
+
+target(lang: golang)
+
+attrs (
+	"rpl:std"
+)
+
+field User.Email {
+	@comment("Primary contact address.")
+}
+
+func User {
+	func FullLabel return (string)
+}
+
+func User.Name {
+	func Lower return (string)
+}

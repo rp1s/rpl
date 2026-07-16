@@ -1,0 +1,36 @@
+package mega
+
+target(lang: golang)
+
+import (
+    "net/http"
+)
+
+attrs (
+    "rpl:grpc"
+    "rpl:sql"
+    "rpl:redis"
+    "rpl:std"
+    "rpl:validate"
+)
+
+@comment("Realtime connection model that demonstrates grpc.Model, subject=id, and inside fields.")
+@grpc()
+@grpc.Model()
+@grpc(subject: "id")
+model RealtimeConnection {
+    Id string
+    {
+        @grpc.id()
+    }
+
+    UserId int
+    Label string
+
+    Request http.Request? @grpc(mode: "inside")
+    (
+        func Method return (string) @grpc.Inside()
+    )
+
+    func Display return (string)
+}

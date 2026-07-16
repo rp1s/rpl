@@ -1,0 +1,27 @@
+target(lang: golang)
+
+attrs (
+    "rpl:transport"
+)
+
+// transport(os.bin) generates a local process transport over stdin/stdout.
+// The generated package contains:
+// - UserTransportService
+// - RunUserTransportServer(...)
+// - NewUserTransportClient(...)
+@transport(os.bin)
+model User {
+    Id int
+    {
+        @transport.id()
+    }
+
+    Name string
+
+    // Classic custom method: no implicit model or id is passed.
+    func String return (string)
+
+    // Model-bound transport method: because the model has an id field,
+    // this becomes Label(ctx, id int) (string, error).
+    func Label return (string) @transport.Model()
+}

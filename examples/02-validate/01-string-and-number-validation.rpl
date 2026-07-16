@@ -1,0 +1,12 @@
+target(lang: golang)
+
+attrs (
+    "rpl:validate"
+)
+
+model Signup {
+    Name string @validate(min: 2, max: 32)
+    Age int @validate(min: 18, max: 130)
+    Email string @validate(email)
+    Phone string @validate(phone)
+}
