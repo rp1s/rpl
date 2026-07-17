@@ -16,14 +16,15 @@ The project includes:
 - a CLI for projects, generation, formatting, imports, docs, and attrs;
 - a newline-oriented JSON runtime used by editor integrations;
 - a public Go SDK for writing generator attrs;
-- seven bundled `rpl:*` attrs;
+- eight bundled `rpl:*` attrs;
 - a VS Code extension with diagnostics, completion, CodeLens, navigation,
   tasks, and toolchain management;
 - examples, integration fixtures, and release builds for six OS/architecture
   combinations.
 
-> Current release: **RPL 0.6.0**. The production target included in this
-> repository is Go (`target(lang: golang)`).
+> Current release: **RPL 0.7.0**. The repository includes the Go target
+> (`target(lang: golang)`) and the artifact-only FFI target
+> (`target(lang: ffi)`).
 
 ## Table of contents
 
@@ -106,17 +107,17 @@ the archive for your platform:
 
 | Platform | Asset |
 | --- | --- |
-| macOS Apple Silicon | `rpl-v0.6.0-darwin-arm64.tar.gz` |
-| macOS Intel | `rpl-v0.6.0-darwin-amd64.tar.gz` |
-| Linux x86-64 | `rpl-v0.6.0-linux-amd64.tar.gz` |
-| Linux ARM64 | `rpl-v0.6.0-linux-arm64.tar.gz` |
-| Windows x86-64 | `rpl-v0.6.0-windows-amd64.zip` |
-| Windows ARM64 | `rpl-v0.6.0-windows-arm64.zip` |
+| macOS Apple Silicon | `rpl-v0.7.0-darwin-arm64.tar.gz` |
+| macOS Intel | `rpl-v0.7.0-darwin-amd64.tar.gz` |
+| Linux x86-64 | `rpl-v0.7.0-linux-amd64.tar.gz` |
+| Linux ARM64 | `rpl-v0.7.0-linux-arm64.tar.gz` |
+| Windows x86-64 | `rpl-v0.7.0-windows-amd64.zip` |
+| Windows ARM64 | `rpl-v0.7.0-windows-arm64.zip` |
 
 Every CLI archive contains:
 
 ```text
-rpl-v0.6.0-<os>-<arch>/
+rpl-v0.7.0-<os>-<arch>/
 ├── rpl or rpl.exe
 ├── .rpl/
 │   ├── attrs/
@@ -126,7 +127,8 @@ rpl-v0.6.0-<os>-<arch>/
 │   │   ├── rpl_mongodb/
 │   │   ├── rpl_redis/
 │   │   ├── rpl_grpc/
-│   │   └── rpl_transport/
+│   │   ├── rpl_transport/
+│   │   └── rpl_ffi/
 │   └── sdk/
 │       ├── go.mod
 │       └── pkg/sdk/

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"rpl/internal/config"
+	"rpl/internal/version"
 	"rpl/pkg/error/localize"
 	"strings"
 	"testing"
@@ -225,7 +226,7 @@ func TestRenderHelpShowsSectionsAndExamples(t *testing.T) {
 	rendered := buffer.String()
 
 	for _, want := range []string{
-		"RPL ",
+		"RPL " + version.Version,
 		"Usage",
 		"Project",
 		"Schema",
