@@ -12,7 +12,8 @@ const DEFAULT_RUNTIME_IDS = [
   "\"rpl:mongodb\"",
   "\"rpl:sql\"",
   "\"rpl:validate\"",
-  "\"rpl:redis\""
+  "\"rpl:redis\"",
+  "\"rpl:transport\""
 ];
 const KEYWORDS = ["target", "import", "attrs", "model", "field", "func", "return"];
 const COMPILE_OUTPUT_STATE_KEY = "rpl.compileOutputDirs";

@@ -9,14 +9,19 @@ import (
 
 var transportModelSpec = sdk.AttrSpec{
 	Namespace: "transport",
-	Help:      localize.Text("Transport генерирует локальный process transport через stdin/stdout и shell client/server для модели.", "Transport generates a local process transport over stdin/stdout together with shell client/server helpers for the model."),
+	Help:      localize.Text("Transport генерирует общий service contract и адаптеры os.bin, HTTP, Unix socket, NATS, Kafka и WebSocket.", "Transport generates one service contract with os.bin, HTTP, Unix socket, NATS, Kafka, and WebSocket adapters."),
 	Args: []sdk.AttrArgSpec{
-		{Name: "mode", Positional: true, Types: []sdk.AttrValueType{sdk.AttrValueTypeStringLike}, Help: localize.Text("Сейчас поддерживается только `os.bin`.", "Currently only `os.bin` is supported.")},
+		{Name: "mode", Positional: true, Types: []sdk.AttrValueType{sdk.AttrValueTypeStringLike}, Help: localize.Text("Режим: os.bin, http, unix, nats, kafka или websocket.", "Mode: os.bin, http, unix, nats, kafka, or websocket.")},
 		{Name: "subject", Types: []sdk.AttrValueType{sdk.AttrValueTypeStringLike}},
 		{Name: "model", Types: []sdk.AttrValueType{sdk.AttrValueTypeBool}, Aliases: []string{"Model"}},
 	},
 	Snippets: []sdk.AttrSnippetSpec{
 		{Label: "@transport(os.bin)", Insert: "@transport(os.bin)", Help: localize.Text("Включает stdin/stdout transport для модели.", "Enables stdin/stdout transport for the model.")},
+		{Label: "@transport(http)", Insert: "@transport(http)", Help: localize.Text("Включает HTTP JSON adapter.", "Enables the HTTP JSON adapter.")},
+		{Label: "@transport(unix)", Insert: "@transport(unix)", Help: localize.Text("Включает Unix socket adapter.", "Enables the Unix socket adapter.")},
+		{Label: "@transport(nats)", Insert: "@transport(nats)", Help: localize.Text("Включает NATS request/reply adapter.", "Enables the NATS request/reply adapter.")},
+		{Label: "@transport(kafka)", Insert: "@transport(kafka)", Help: localize.Text("Включает Kafka RPC adapter.", "Enables the Kafka RPC adapter.")},
+		{Label: "@transport(websocket)", Insert: "@transport(websocket)", Help: localize.Text("Включает WebSocket adapter.", "Enables the WebSocket adapter.")},
 		{Label: "@transport.Model()", Insert: "@transport.Model()", Help: localize.Text("Делает custom transport methods instance-style.", "Makes custom transport methods instance-style.")},
 		{Label: "@transport(subject: \"id\")", Insert: "@transport(subject: \"id\")", Help: localize.Text("Переключает instance-style методы на идентификатор модели.", "Switches instance-style methods to the model identifier.")},
 	},
@@ -24,9 +29,9 @@ var transportModelSpec = sdk.AttrSpec{
 
 var transportFieldSpec = sdk.AttrSpec{
 	Namespace: "transport",
-	Help:      localize.Text("На уровне поля и метода transport понимает `id`, `model`, `subject`, `ignore` и positional mode `os.bin`.", "At field and method level transport understands `id`, `model`, `subject`, `ignore`, and the positional `os.bin` mode."),
+	Help:      localize.Text("На уровне поля и метода transport понимает `id`, `model`, `subject`, `ignore` и отдельный transport mode.", "At field and method level transport understands `id`, `model`, `subject`, `ignore`, and a dedicated transport mode."),
 	Args: []sdk.AttrArgSpec{
-		{Name: "mode", Positional: true, Types: []sdk.AttrValueType{sdk.AttrValueTypeStringLike}, Help: localize.Text("Сейчас поддерживается только `os.bin`.", "Currently only `os.bin` is supported.")},
+		{Name: "mode", Positional: true, Types: []sdk.AttrValueType{sdk.AttrValueTypeStringLike}, Help: localize.Text("Режим: os.bin, http, unix, nats, kafka или websocket.", "Mode: os.bin, http, unix, nats, kafka, or websocket.")},
 		{Name: "id", Types: []sdk.AttrValueType{sdk.AttrValueTypeBool}, Aliases: []string{"ID"}},
 		{Name: "model", Types: []sdk.AttrValueType{sdk.AttrValueTypeBool}, Aliases: []string{"Model"}},
 		{Name: "subject", Types: []sdk.AttrValueType{sdk.AttrValueTypeStringLike}},
@@ -42,20 +47,14 @@ var transportFieldSpec = sdk.AttrSpec{
 func analyzeTransport(req sdk.GenerateRequest) (sdk.AnalyzeResponse, error) {
 	builder := sdk.NewAnalyzeBuilder()
 
-	modelResolved := builder.ValidateAttrSpec(req.Model.RuntimeAttrs, transportModelSpec)
-	validateTransportMode(builder, modelRuntimeAttr(req.Model, "transport"), modeValue(modelResolved))
-	validateTransportSubject(builder, modelRuntimeAttr(req.Model, "transport"), modelResolved.ValueMap())
+	validateTransportAttrs(builder, req.Model.RuntimeAttrs, transportModelSpec, false)
 
 	for _, field := range req.Model.Fields {
-		resolved := builder.ValidateAttrSpec(field.RuntimeAttrs, transportFieldSpec)
-		validateTransportMode(builder, fieldRuntimeAttr(field, "transport"), modeValue(resolved))
-		validateTransportSubject(builder, fieldRuntimeAttr(field, "transport"), resolved.ValueMap())
+		validateTransportAttrs(builder, field.RuntimeAttrs, transportFieldSpec, true)
 	}
 
 	for _, method := range req.Model.Methods {
-		resolved := builder.ValidateAttrSpec(method.RuntimeAttrs, transportFieldSpec)
-		validateTransportMode(builder, methodRuntimeAttr(method, "transport"), modeValue(resolved))
-		validateTransportSubject(builder, methodRuntimeAttr(method, "transport"), resolved.ValueMap())
+		validateTransportAttrs(builder, method.RuntimeAttrs, transportFieldSpec, false)
 	}
 
 	plan, err := buildTransportPlan(req)
@@ -70,6 +69,23 @@ func analyzeTransport(req sdk.GenerateRequest) (sdk.AnalyzeResponse, error) {
 	scope := packageScope(req.File, "transport")
 	sdk.AddGeneratedClaimsInScope(builder, generateTransportResponse(plan), scope)
 	return builder.Response(), nil
+}
+
+// Multiple @transport(mode) attrs are intentional: they select independent
+// adapters rather than conflicting values of one scalar setting. Validate each
+// occurrence separately so the generic attr resolver does not report a false
+// mode conflict while retaining normal name/type diagnostics.
+func validateTransportAttrs(builder *sdk.AnalyzeBuilder, attrs []sdk.Attr, spec sdk.AttrSpec, validateMode bool) {
+	for _, attr := range attrs {
+		if !attr.Matches("transport") && attr.Namespace() != "transport" {
+			continue
+		}
+		resolved := builder.ValidateAttrSpec([]sdk.Attr{attr}, spec)
+		if validateMode {
+			validateTransportMode(builder, attr, modeValue(resolved))
+		}
+		validateTransportSubject(builder, attr, resolved.ValueMap())
+	}
 }
 
 func packageScope(file sdk.FileContext, parts ...string) string {
@@ -94,14 +110,14 @@ func validateTransportMode(builder *sdk.AnalyzeBuilder, attr sdk.Attr, mode stri
 	if builder == nil || strings.TrimSpace(mode) == "" {
 		return
 	}
-	if strings.EqualFold(strings.TrimSpace(mode), transportModeOSBin) {
+	if _, err := normalizeTransportMode(mode); err == nil {
 		return
 	}
 
 	builder.AddDiagnostic(sdk.DiagnosticAt(
 		attr,
-		fmt.Sprintf(localize.Text("transport mode %q пока не поддерживается", "transport mode %q is not supported yet"), mode),
-		localize.Text("Сейчас используйте `@transport(os.bin)` для stdin/stdout shell transport.", "For now use `@transport(os.bin)` for the stdin/stdout shell transport."),
+		fmt.Sprintf(localize.Text("transport mode %q не поддерживается", "transport mode %q is not supported"), mode),
+		localize.Text("Используйте `os.bin`, `http`, `unix`, `nats`, `kafka` или `websocket`.", "Use `os.bin`, `http`, `unix`, `nats`, `kafka`, or `websocket`."),
 	))
 }
 

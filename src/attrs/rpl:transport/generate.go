@@ -22,38 +22,64 @@ func generateTransport(req sdk.GenerateRequest) sdk.GenerateResponse {
 
 func generateTransportResponse(plan *transportPlan) sdk.GenerateResponse {
 	builder := sdk.NewCodeBuilder()
-	addTransportImports(builder, plan)
+	addTransportCommonImports(builder, plan)
 	builder.AddOrderedBlock("transport.protocol", renderTransportProtocol(plan), 10)
 	builder.AddOrderedBlock("transport.service", renderTransportService(plan), 20)
-	builder.AddOrderedBlock("transport.server", renderTransportServer(plan), 30)
-	builder.AddOrderedBlock("transport.client", renderTransportClient(plan), 40)
+	builder.AddOrderedBlock("transport.dispatch", renderTransportDispatch(plan), 30)
+	if mode, ok := plan.mode(transportModeOSBin); ok {
+		addTransportOSBinImports(builder)
+		builder.AddOrderedBlock("transport.osbin.server", renderTransportServer(plan, mode), 40)
+		builder.AddOrderedBlock("transport.osbin.client", renderTransportClient(plan, mode), 50)
+	}
 
 	body, err := sdk.RenderGoFile("transport", builder.Response())
 	if err != nil || strings.TrimSpace(string(body)) == "" {
 		return sdk.GenerateResponse{}
 	}
 
-	return sdk.GenerateResponse{
+	response := sdk.GenerateResponse{
 		Files: []sdk.GeneratedFile{{
 			Path:    "transport/transport.gen.go",
 			Content: string(body),
 		}},
 	}
+	for _, mode := range plan.Modes {
+		var file sdk.GeneratedFile
+		switch mode.Name {
+		case transportModeHTTP:
+			file = generateHTTPTransportFile(plan, mode)
+		case transportModeUnix:
+			file = generateUnixTransportFile(plan, mode)
+		case transportModeNATS:
+			file = generateNATSTransportFile(plan, mode)
+		case transportModeKafka:
+			file = generateKafkaTransportFile(plan, mode)
+		case transportModeWebSocket:
+			file = generateWebSocketTransportFile(plan, mode)
+		}
+		if strings.TrimSpace(file.Path) != "" && strings.TrimSpace(file.Content) != "" {
+			response.Files = append(response.Files, file)
+		}
+	}
+	return response
 }
 
-func addTransportImports(builder *sdk.CodeBuilder, plan *transportPlan) {
+func addTransportCommonImports(builder *sdk.CodeBuilder, plan *transportPlan) {
 	if builder == nil || plan == nil {
 		return
 	}
 	builder.AddImport("context")
 	builder.AddImport("encoding/json")
 	builder.AddImport("fmt")
+	builder.AddImport(plan.ModelImportPath, "modelpkg")
+}
+
+func addTransportOSBinImports(builder *sdk.CodeBuilder) {
 	builder.AddImport("io")
 	builder.AddImport("os")
 	builder.AddImport("os/exec")
 	builder.AddImport("strings")
 	builder.AddImport("sync")
-	builder.AddImport(plan.ModelImportPath, "modelpkg")
 }
 
 func renderTransportProtocol(plan *transportPlan) string {
@@ -123,7 +149,7 @@ func renderTransportService(plan *transportPlan) string {
 	)
 }
 
-func renderTransportServer(plan *transportPlan) string {
+func renderTransportServer(plan *transportPlan, mode transportModePlan) string {
 	var builder strings.Builder
 
 	builder.WriteString(sdk.WithDocComment(
@@ -151,20 +177,20 @@ func renderTransportServer(plan *transportPlan) string {
 	))
 	builder.WriteString("\n\n")
 	builder.WriteString(sdk.WithDocComment(
-		fmt.Sprintf("func (server *%s) Serve(reader io.Reader, writer io.Writer) error {\n\tif server == nil || server.Service == nil {\n\t\treturn fmt.Errorf(%q)\n\t}\n\n\tdecoder := json.NewDecoder(reader)\n\tencoder := json.NewEncoder(writer)\n\tfor {\n\t\tvar envelope %s\n\t\tif err := decoder.Decode(&envelope); err != nil {\n\t\t\tif err == io.EOF {\n\t\t\t\treturn nil\n\t\t\t}\n\t\t\treturn err\n\t\t}\n\n\t\tresponse, err := server.dispatch(envelope)\n\t\tif err != nil {\n\t\t\tresponse = %s{Error: err.Error()}\n\t\t}\n\t\tif err := encoder.Encode(response); err != nil {\n\t\t\treturn err\n\t\t}\n\t}\n}", plan.ServerName, "transport server requires a configured service", plan.EnvelopeName, plan.ResponseName),
+		fmt.Sprintf("func (server *%s) Serve(reader io.Reader, writer io.Writer) error {\n\tif server == nil || server.Service == nil {\n\t\treturn fmt.Errorf(%q)\n\t}\n\n\tdecoder := json.NewDecoder(reader)\n\tencoder := json.NewEncoder(writer)\n\tfor {\n\t\tvar envelope %s\n\t\tif err := decoder.Decode(&envelope); err != nil {\n\t\t\tif err == io.EOF {\n\t\t\t\treturn nil\n\t\t\t}\n\t\t\treturn err\n\t\t}\n\n\t\tresponse, err := %s(server.Service, context.Background(), %q, envelope)\n\t\tif err != nil {\n\t\t\tresponse = %s{Error: err.Error()}\n\t\t}\n\t\tif err := encoder.Encode(response); err != nil {\n\t\t\treturn err\n\t\t}\n\t}\n}", plan.ServerName, "transport server requires a configured service", plan.EnvelopeName, transportDispatchName(plan), mode.Name, plan.ResponseName),
 		"Serve читает transport-запросы для модели %s из reader и пишет ответы в writer.",
 		"Serve reads transport requests for model %s from reader and writes responses to writer.",
 		plan.Model.Name,
 	))
 	builder.WriteString("\n\n")
-	builder.WriteString(renderTransportDispatch(plan))
-
 	return builder.String()
 }
 
 func renderTransportDispatch(plan *transportPlan) string {
 	var builder strings.Builder
-	builder.WriteString(fmt.Sprintf("func (server *%s) dispatch(envelope %s) (%s, error) {\n\tswitch envelope.Method {\n", plan.ServerName, plan.EnvelopeName, plan.ResponseName))
+	builder.WriteString(renderTransportModeAllowed(plan))
+	builder.WriteString("\n\n")
+	builder.WriteString(fmt.Sprintf("func %s(service %s, ctx context.Context, mode string, envelope %s) (%s, error) {\n\tif service == nil {\n\t\treturn %s{}, fmt.Errorf(\"transport service is nil\")\n\t}\n\tif !%s(mode, envelope.Method) {\n\t\treturn %s{}, fmt.Errorf(\"transport method %%q is not enabled for mode %%q\", envelope.Method, mode)\n\t}\n\tswitch envelope.Method {\n", transportDispatchName(plan), plan.ServiceName, plan.EnvelopeName, plan.ResponseName, plan.ResponseName, transportAllowedName(plan), plan.ResponseName))
 	for _, method := range plan.Methods {
 		builder.WriteString(fmt.Sprintf("\tcase %q:\n", method.Name))
 		builder.WriteString(indentTransport(renderTransportDispatchCase(plan, method), "\t\t"))
@@ -176,6 +202,28 @@ func renderTransportDispatch(plan *transportPlan) string {
 	return builder.String()
 }
 
+func renderTransportModeAllowed(plan *transportPlan) string {
+	var builder strings.Builder
+	builder.WriteString(fmt.Sprintf("func %s(mode string, method string) bool {\n\tswitch mode {\n", transportAllowedName(plan)))
+	for _, mode := range plan.Modes {
+		builder.WriteString(fmt.Sprintf("\tcase %q:\n\t\tswitch method {\n", mode.Name))
+		for _, method := range mode.Methods {
+			builder.WriteString(fmt.Sprintf("\t\tcase %q:\n\t\t\treturn true\n", method.Name))
+		}
+		builder.WriteString("\t\t}\n")
+	}
+	builder.WriteString("\t}\n\treturn false\n}")
+	return builder.String()
+}
+
+func transportDispatchName(plan *transportPlan) string {
+	return sdk.LowerCamel(plan.Model.Name) + "TransportDispatch"
+}
+
+func transportAllowedName(plan *transportPlan) string {
+	return sdk.LowerCamel(plan.Model.Name) + "TransportMethodAllowed"
+}
+
 func renderTransportDispatchCase(plan *transportPlan, method transportMethodPlan) string {
 	var builder strings.Builder
 	builder.WriteString(fmt.Sprintf("var payload %s\n", method.RequestTypeName))
@@ -183,7 +231,7 @@ func renderTransportDispatchCase(plan *transportPlan, method transportMethodPlan
 	builder.WriteString(fmt.Sprintf("\tif err := json.Unmarshal(envelope.Payload, &payload); err != nil {\n\t\treturn %s{}, err\n\t}\n", plan.ResponseName))
 	builder.WriteString("}\n")
 
-	call := "server.Service." + method.Name + "(context.Background()"
+	call := "service." + method.Name + "(ctx"
 	for _, arg := range method.CallArgs {
 		call += ", " + arg
 	}
@@ -219,7 +267,7 @@ func renderTransportDispatchCase(plan *transportPlan, method transportMethodPlan
 	return builder.String()
 }
 
-func renderTransportClient(plan *transportPlan) string {
+func renderTransportClient(plan *transportPlan, mode transportModePlan) string {
 	var builder strings.Builder
 	builder.WriteString(sdk.WithDocComment(
 		fmt.Sprintf("type %s struct {\n\tcmd *exec.Cmd\n\tstdin io.WriteCloser\n\tstdout io.ReadCloser\n\tencoder *json.Encoder\n\tdecoder *json.Decoder\n\tmu sync.Mutex\n}", plan.ClientName),
@@ -246,7 +294,7 @@ func renderTransportClient(plan *transportPlan) string {
 	builder.WriteString("\n\n")
 	builder.WriteString(renderTransportClientRoundTrip(plan))
 
-	for _, method := range plan.Methods {
+	for _, method := range mode.Methods {
 		builder.WriteString("\n\n")
 		builder.WriteString(renderTransportClientMethod(plan, method))
 	}
@@ -264,6 +312,18 @@ func renderTransportClientRoundTrip(plan *transportPlan) string {
 }
 
 func renderTransportClientMethod(plan *transportPlan, method transportMethodPlan) string {
+	return renderTransportTypedClientMethod(plan, method, plan.ClientName, "roundTrip")
+}
+
+func renderTransportTypedClientMethods(plan *transportPlan, methods []transportMethodPlan, receiverName string, roundTripMethod string) string {
+	items := make([]string, 0, len(methods))
+	for _, method := range methods {
+		items = append(items, renderTransportTypedClientMethod(plan, method, receiverName, roundTripMethod))
+	}
+	return strings.Join(items, "\n\n")
+}
+
+func renderTransportTypedClientMethod(plan *transportPlan, method transportMethodPlan, receiverName string, roundTripMethod string) string {
 	argsSig := transportClientArgsSignature(method)
 	returnsSig := transportClientReturnsSignature(method)
 	zeroReturn := transportClientErrorReturn(method)
@@ -277,19 +337,19 @@ func renderTransportClientMethod(plan *transportPlan, method transportMethodPlan
 		plan.Model.Name,
 	))
 	builder.WriteString("\n")
-	builder.WriteString(fmt.Sprintf("func (client *%s) %s(ctx context.Context%s)%s {\n", plan.ClientName, method.Name, argsSig, returnsSig))
+	builder.WriteString(fmt.Sprintf("func (client *%s) %s(ctx context.Context%s)%s {\n", receiverName, method.Name, argsSig, returnsSig))
 	builder.WriteString(fmt.Sprintf("\trequest := %s{%s}\n", method.RequestTypeName, transportClientRequestAssignments(method)))
 
 	if len(method.ResultFields) > 0 {
 		builder.WriteString(fmt.Sprintf("\tvar response %s\n", method.ResponseTypeName))
-		builder.WriteString(fmt.Sprintf("\tif err := client.roundTrip(ctx, %q, request, &response); err != nil {\n\t\t%s\n\t}\n", method.Name, zeroReturn))
+		builder.WriteString(fmt.Sprintf("\tif err := client.%s(ctx, %q, request, &response); err != nil {\n\t\t%s\n\t}\n", roundTripMethod, method.Name, zeroReturn))
 		builder.WriteString("\treturn ")
 		builder.WriteString(transportClientResponseReturns(method))
 		builder.WriteString("\n}")
 		return builder.String()
 	}
 
-	builder.WriteString(fmt.Sprintf("\tif err := client.roundTrip(ctx, %q, request, nil); err != nil {\n\t\t%s\n\t}\n", method.Name, zeroReturn))
+	builder.WriteString(fmt.Sprintf("\tif err := client.%s(ctx, %q, request, nil); err != nil {\n\t\t%s\n\t}\n", roundTripMethod, method.Name, zeroReturn))
 	if len(method.SignatureReturns) == 0 {
 		builder.WriteString("\treturn nil\n}")
 		return builder.String()

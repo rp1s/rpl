@@ -8,7 +8,7 @@
 RPL is a declarative schema language, compiler, extensible code-generation
 runtime, and developer toolchain. It turns compact `.rpl` files into typed Go
 models and the infrastructure around them: validation, SQL, MongoDB, Redis,
-protobuf/gRPC, local process transports, documentation, and editor tooling.
+protobuf/gRPC, multi-transport adapters, documentation, and editor tooling.
 
 The project includes:
 
@@ -437,7 +437,7 @@ See [`examples/06-multifile`](examples/06-multifile) and
 | `rpl:mongodb` | 1.0.0 | BSON adapters, indexes, search/sort metadata, CRUD helpers |
 | `rpl:redis` | 1.0.0 | Redis keys, hash storage, uniqueness, defaults, TTL |
 | `rpl:grpc` | 1.0.0 | `.proto`, protobuf Go, gRPC services, clients, conversions |
-| `rpl:transport` | 1.0.0 | local stdin/stdout process client/server shells |
+| `rpl:transport` | 2.0.0 | shared service contracts with os.bin, HTTP, Unix, NATS, Kafka, and WebSocket adapters |
 
 ### `rpl:std`
 
@@ -543,11 +543,37 @@ the schema.
 
 ### `rpl:transport`
 
-`@transport(os.bin)` generates a local process transport over stdin/stdout,
-without HTTP. The generated package includes a service interface, server loop,
-client, request/response envelopes, model CRUD-style operations, and custom
-method bindings. Identity and model-bound semantics use `@transport.id()` and
-`@transport.Model()`.
+Transport 2 generates one service contract with any combination of:
+
+```rpl
+@transport(os.bin)
+@transport(http)
+@transport(unix)
+@transport(nats)
+@transport(kafka)
+@transport(websocket)
+model User {
+    Id int @transport.id()
+    Name string
+    func Health return (string)
+    func Changed return (string) @transport(kafka)
+}
+```
+
+Model-level modes share CRUD and methods without an explicit mode. A
+method-level mode restricts that operation to one adapter while retaining one
+business interface. Generated output includes mode-aware dispatch, typed
+clients, request/response types, and adapter lifecycle helpers.
+
+HTTP uses `net/http`; Unix uses domain sockets. NATS, Kafka, and WebSocket expose
+small integration interfaces so applications can choose and version their own
+client libraries. Kafka's bridge explicitly owns correlation IDs and reply
+topics because Kafka is not inherently request/reply.
+
+Identity and model-bound semantics continue to use `@transport.id()` and
+`@transport.Model()`. Omitting a mode remains equivalent to `os.bin`.
+See the complete [`transport attr guide`](src/attrs/rpl:transport/README.md) and
+[`multi-transport project`](examples/projects/process-service/README.md).
 
 ## CLI reference
 
@@ -837,7 +863,7 @@ Extension source and additional documentation live in
 | `06-multifile` | one package split across RPL files |
 | `07-imports` | importing another RPL schema |
 | `08-mongodb` | collections, BSON, indexes, search, sort, CRUD |
-| `09-transport` | stdin/stdout process transport |
+| `09-transport` | os.bin, HTTP, Unix socket, NATS, Kafka, WebSocket, and multi-adapter routing |
 | `99-showcase` | end-to-end combinations of built-in attrs |
 | `projects` | standalone Go modules with app code, commands, and tests |
 

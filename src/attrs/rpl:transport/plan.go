@@ -6,7 +6,23 @@ import (
 	"strings"
 )
 
-const transportModeOSBin = "os.bin"
+const (
+	transportModeOSBin     = "os.bin"
+	transportModeHTTP      = "http"
+	transportModeUnix      = "unix"
+	transportModeNATS      = "nats"
+	transportModeKafka     = "kafka"
+	transportModeWebSocket = "websocket"
+)
+
+var transportSupportedModes = []string{
+	transportModeOSBin,
+	transportModeHTTP,
+	transportModeUnix,
+	transportModeNATS,
+	transportModeKafka,
+	transportModeWebSocket,
+}
 
 type transportSubjectMode string
 
@@ -24,8 +40,13 @@ type transportPlan struct {
 	ServiceName     string
 	EnvelopeName    string
 	ResponseName    string
-	Mode            string
 	Methods         []transportMethodPlan
+	Modes           []transportModePlan
+}
+
+type transportModePlan struct {
+	Name    string
+	Methods []transportMethodPlan
 }
 
 type transportMethodPlan struct {
@@ -46,17 +67,14 @@ type transportValue struct {
 }
 
 func buildTransportPlan(req sdk.GenerateRequest) (*transportPlan, error) {
-	mode := transportModelMode(req.Model)
+	modelModes, err := transportModelModes(req.Model)
+	if err != nil {
+		return nil, err
+	}
+	modelEnabled := transportModelEnabled(req.Model)
 	activeMethods := transportActiveModelMethods(req.Model)
-	if mode == "" && len(activeMethods) == 0 {
+	if !modelEnabled && len(activeMethods) == 0 {
 		return nil, nil
-	}
-	if mode == "" {
-		mode = transportModeOSBin
-	}
-	if !strings.EqualFold(mode, transportModeOSBin) {
-		return nil, sdk.NewErrorf(localize.Text("transport mode %q пока не поддерживается", "transport mode %q is not supported yet"), mode).
-			WithHint(localize.Text("Сейчас используйте `os.bin` для shell transport через stdin/stdout.", "For now use `os.bin` for stdin/stdout shell transport."))
 	}
 
 	idField, hasID, err := transportFindIDField(req.Model)
@@ -72,20 +90,55 @@ func buildTransportPlan(req sdk.GenerateRequest) (*transportPlan, error) {
 		ServiceName:     req.Model.Name + "TransportService",
 		EnvelopeName:    sdk.LowerCamel(req.Model.Name) + "TransportEnvelope",
 		ResponseName:    sdk.LowerCamel(req.Model.Name) + "TransportResponse",
-		Mode:            mode,
 		Methods:         make([]transportMethodPlan, 0),
+		Modes:           make([]transportModePlan, 0),
+	}
+	modeIndexes := make(map[string]int)
+	methodIndexes := make(map[string]int)
+	ensureMode := func(mode string) int {
+		if index, ok := modeIndexes[mode]; ok {
+			return index
+		}
+		index := len(plan.Modes)
+		modeIndexes[mode] = index
+		plan.Modes = append(plan.Modes, transportModePlan{Name: mode, Methods: make([]transportMethodPlan, 0)})
+		return index
+	}
+	addMethod := func(mode string, method transportMethodPlan) {
+		modeIndex := ensureMode(mode)
+		for _, existing := range plan.Modes[modeIndex].Methods {
+			if existing.Name == method.Name {
+				return
+			}
+		}
+		plan.Modes[modeIndex].Methods = append(plan.Modes[modeIndex].Methods, method)
+		if _, ok := methodIndexes[method.Name]; !ok {
+			methodIndexes[method.Name] = len(plan.Methods)
+			plan.Methods = append(plan.Methods, method)
+		}
 	}
 
-	if transportModelEnabled(req.Model) {
-		plan.Methods = append(plan.Methods, transportAutoMethods(req.Model, hasID, idField)...)
+	if modelEnabled {
+		for _, mode := range modelModes {
+			ensureMode(mode)
+			for _, method := range transportAutoMethods(req.Model, hasID, idField) {
+				addMethod(mode, method)
+			}
+		}
 	}
 
 	for _, method := range activeMethods {
+		modes, err := transportModesForMethod(method, modelModes, modelEnabled)
+		if err != nil {
+			return nil, err
+		}
 		item, err := buildTransportCustomMethodPlan(req.Model, method, hasID, idField)
 		if err != nil {
 			return nil, err
 		}
-		plan.Methods = append(plan.Methods, item)
+		for _, mode := range modes {
+			addMethod(mode, item)
+		}
 	}
 
 	return plan, nil
@@ -103,17 +156,6 @@ func transportModelEnabled(model sdk.Model) bool {
 	return ok
 }
 
-func transportModelMode(model sdk.Model) string {
-	resolved, ok := model.ResolvedAttr("transport")
-	if !ok {
-		return ""
-	}
-	if mode := modeValue(resolved); mode != "" {
-		return mode
-	}
-	return transportModeOSBin
-}
-
 func transportActiveModelMethods(model sdk.Model) []sdk.Method {
 	methods := make([]sdk.Method, 0)
 	modelEnabled := transportModelEnabled(model)
@@ -126,6 +168,91 @@ func transportActiveModelMethods(model sdk.Model) []sdk.Method {
 		}
 	}
 	return methods
+}
+
+func transportModelModes(model sdk.Model) ([]string, error) {
+	if !transportModelEnabled(model) {
+		return nil, nil
+	}
+	modes, err := transportExplicitModes(append(append([]sdk.Attr(nil), model.RuntimeAttrs...), model.Attrs...))
+	if err != nil {
+		return nil, err
+	}
+	if len(modes) == 0 {
+		return []string{transportModeOSBin}, nil
+	}
+	return modes, nil
+}
+
+func transportModesForMethod(method sdk.Method, modelModes []string, modelEnabled bool) ([]string, error) {
+	explicit, err := transportExplicitModes(append(append([]sdk.Attr(nil), method.RuntimeAttrs...), method.Attrs...))
+	if err != nil {
+		return nil, err
+	}
+	if len(explicit) > 0 {
+		return explicit, nil
+	}
+	if modelEnabled && len(modelModes) > 0 {
+		return append([]string(nil), modelModes...), nil
+	}
+	return []string{transportModeOSBin}, nil
+}
+
+func transportExplicitModes(attrs []sdk.Attr) ([]string, error) {
+	items := make([]string, 0)
+	seen := make(map[string]struct{})
+	for _, attr := range attrs {
+		if !attr.Matches("transport") && attr.Namespace() != "transport" {
+			continue
+		}
+		mode := ""
+		if len(attr.Args) > 0 && strings.TrimSpace(attr.SubName()) == "" {
+			mode = attr.Args[0].String()
+		}
+		if named, ok := attr.Named("mode"); ok {
+			mode = named.String()
+		}
+		if strings.TrimSpace(mode) == "" {
+			continue
+		}
+		normalized, err := normalizeTransportMode(mode)
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := seen[normalized]; ok {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		items = append(items, normalized)
+	}
+	return items, nil
+}
+
+func normalizeTransportMode(mode string) (string, error) {
+	normalized := strings.ToLower(strings.TrimSpace(mode))
+	switch normalized {
+	case "ws", "web-socket":
+		normalized = transportModeWebSocket
+	}
+	for _, supported := range transportSupportedModes {
+		if normalized == supported {
+			return normalized, nil
+		}
+	}
+	return "", sdk.NewErrorf(localize.Text("transport mode %q не поддерживается", "transport mode %q is not supported"), mode).
+		WithHint(localize.Text("Используйте `os.bin`, `http`, `unix`, `nats`, `kafka` или `websocket`.", "Use `os.bin`, `http`, `unix`, `nats`, `kafka`, or `websocket`."))
+}
+
+func (plan *transportPlan) mode(name string) (transportModePlan, bool) {
+	if plan == nil {
+		return transportModePlan{}, false
+	}
+	for _, mode := range plan.Modes {
+		if mode.Name == name {
+			return mode, true
+		}
+	}
+	return transportModePlan{}, false
 }
 
 func transportAutoMethods(model sdk.Model, hasID bool, idField sdk.Field) []transportMethodPlan {

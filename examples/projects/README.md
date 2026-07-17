@@ -11,7 +11,7 @@ against freshly generated code.
 | --- | --- | --- | --- |
 | [account-service](account-service/README.md) | `sql`, `std`, `validate` | SQLite-oriented repository API, typed SQL filters, validation-first service | generation + `go test ./...` |
 | [session-cache](session-cache/README.md) | `redis`, `std`, `validate` | Redis keys, hash serialization, ignored fields, TTL boundary | generation + round-trip test |
-| [process-service](process-service/README.md) | `transport`, `validate` | newline JSON over stdin/stdout, generated server/client, in-memory service | transport dispatch integration test |
+| [process-service](process-service/README.md) | `transport`, `validate` | one service exposed through os.bin, HTTP, Unix, NATS, Kafka, and WebSocket | clean generation + multi-transport integration tests |
 | [grpc-service](grpc-service/README.md) | `grpc`, `validate` | protobuf, typed gRPC adapters, validation-aware service, TCP server | generation + adapter tests |
 
 ## Run All Projects

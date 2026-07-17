@@ -1,0 +1,15 @@
+target(lang: golang)
+
+attrs (
+    "rpl:transport"
+)
+
+// The generated connection/upgrader interfaces can wrap gorilla/websocket,
+// coder/websocket, or an application-specific WebSocket implementation.
+@transport(websocket)
+model Presence {
+    Id string @transport.id()
+    Status string
+
+    func Watch return (string) @transport.Model()
+}

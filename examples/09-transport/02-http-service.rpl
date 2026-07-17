@@ -1,0 +1,15 @@
+target(lang: golang)
+
+attrs (
+    "rpl:transport"
+)
+
+// Generates net/http Handler, ServeMux registration, and a typed HTTP client.
+@transport(http)
+model Article {
+    Id int @transport.id()
+    Title string
+    Body string
+
+    func Preview return (string) @transport.Model()
+}

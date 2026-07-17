@@ -45,6 +45,11 @@ This catches errors that unit tests alone cannot: wrong module import paths,
 missing generated files, stale API assumptions in handwritten code, invalid
 protobuf output, and examples that only work inside the RPL repository.
 
+`transport_modes_test.go` adds a focused generated-module fixture containing
+all transport modes at once. It performs round trips through HTTP, Unix socket,
+in-memory NATS/Kafka broker bridges, and an in-memory WebSocket pair while also
+preserving the independent `os.bin` compatibility test.
+
 ## Legacy Integration Application
 
 `test/app` is a larger generated fixture retained for focused SQL, validation,

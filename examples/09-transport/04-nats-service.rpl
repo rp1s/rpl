@@ -1,0 +1,16 @@
+target(lang: golang)
+
+attrs (
+    "rpl:transport"
+)
+
+// Generates request/reply clients and subscription handlers behind a tiny
+// broker interface that can be implemented with nats.go or another client.
+@transport(nats)
+model Notification {
+    Id string @transport.id()
+    Recipient string
+    Message string
+
+    func Deliver return (string) @transport.Model()
+}

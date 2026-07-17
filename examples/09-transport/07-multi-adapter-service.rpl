@@ -1,0 +1,26 @@
+target(lang: golang)
+
+attrs (
+    "rpl:transport"
+)
+
+// One business interface, several generated adapters.
+@transport(os.bin)
+@transport(http)
+@transport(unix)
+@transport(nats)
+@transport(kafka)
+@transport(websocket)
+model User {
+    Id int @transport.id()
+    Name string
+
+    // Inherits every model-level transport.
+    func Health return (string)
+
+    // Explicit modes restrict these methods to one adapter each.
+    func HTTPDebug return (string) @transport(http)
+    func Notify return (string) @transport(nats)
+    func Changed return (string) @transport(kafka)
+    func Watch return (string) @transport(websocket)
+}

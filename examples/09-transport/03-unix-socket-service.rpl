@@ -1,0 +1,15 @@
+target(lang: golang)
+
+attrs (
+    "rpl:transport"
+)
+
+// Generates a concurrent Unix domain socket server and typed client.
+@transport(unix)
+model WorkerJob {
+    Id string @transport.id()
+    Queue string
+    Payload string
+
+    func Status return (string) @transport.Model()
+}

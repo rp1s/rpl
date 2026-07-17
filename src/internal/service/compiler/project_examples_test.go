@@ -53,6 +53,11 @@ func TestProjectExamplesGenerateAndCompile(t *testing.T) {
 			expected: map[string][]string{
 				"generated/user/model.gen.go":                 {"type User struct"},
 				"generated/user/transport/transport.gen.go":   {"type UserTransportService interface", "func (server *UserTransportServer) Serve"},
+				"generated/user/transport/http.gen.go":        {"type UserHTTPHandler struct", "func NewUserHTTPClient"},
+				"generated/user/transport/unix.gen.go":        {"func ListenUserUnix", "func DialUserUnix"},
+				"generated/user/transport/nats.gen.go":        {"type UserNATSBroker interface"},
+				"generated/user/transport/kafka.gen.go":       {"type UserKafkaBroker interface"},
+				"generated/user/transport/websocket.gen.go":   {"type UserWebSocketConn interface"},
 				"generated/user/validation/validation.gen.go": {"func Validate"},
 			},
 		},

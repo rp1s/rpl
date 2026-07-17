@@ -29,7 +29,7 @@ sense on specific transports.
 - `06-multifile` - one package split into multiple `.rpl` files
 - `07-imports` - importing another `.rpl` file
 - `08-mongodb` - MongoDB collections, indexes, search, and CRUD helpers
-- `09-transport` - local stdin/stdout process transport with generated shell client/server
+- `09-transport` - os.bin, HTTP, Unix socket, NATS, Kafka, WebSocket, and multi-adapter services
 - `99-showcase` - large end-to-end examples
 - `projects` - four complete applications that are regenerated and compiled in CI
 
@@ -109,8 +109,9 @@ priority than the global one.
 - Some examples use standard library imports such as `time` or `net/http`.
 - The `grpc` examples show both classic custom methods and the explicit
   instance-style mode enabled by `@grpc.Model()`.
-- The `transport` examples use `@transport(os.bin)` to generate a local shell
-  transport over stdin/stdout without HTTP.
+- The `transport` examples cover six adapters. Repeated model-level attrs
+  generate several clients/servers around one service interface; method-level
+  modes restrict individual operations to one adapter.
 - Do not edit generated `*.gen.go` or `.proto` files. Change the schema, rerun
   RPL, and keep handwritten policy inside `internal/` or `cmd/`.
 - Every full project README explains the generated API, testing boundary,

@@ -1,0 +1,16 @@
+target(lang: golang)
+
+attrs (
+    "rpl:transport"
+)
+
+// KafkaBroker owns correlation IDs, reply topics, and consumer groups while
+// generated code keeps the domain-oriented service contract.
+@transport(kafka)
+model AuditEvent {
+    Id string @transport.id()
+    Kind string
+    Payload string
+
+    func Replay return (string) @transport.Model()
+}

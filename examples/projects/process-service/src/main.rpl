@@ -8,6 +8,11 @@ attrs (
 )
 
 @transport(os.bin)
+@transport(http)
+@transport(unix)
+@transport(nats)
+@transport(kafka)
+@transport(websocket)
 model User {
     Id int @transport.id()
     Name string @validate(min: 2, max: 64)
