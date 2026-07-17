@@ -123,7 +123,7 @@ func generateSQLBuildWhereFunction(prefix string) string {
 			return "", nil, fmt.Errorf("unknown sql filter column %%q", key)
 		}
 
-		value, err := %sNormalizeFilterValue(column, filters[key])
+		value, err := %sNormalizeFilterValue(key, filters[key])
 		if err != nil {
 			return "", nil, err
 		}

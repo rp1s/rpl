@@ -22,7 +22,7 @@ The project includes:
 - examples, integration fixtures, and release builds for six OS/architecture
   combinations.
 
-> Current release: **RPL 0.7.0**. The repository includes the Go target
+> Current release: **RPL 0.7.1**. The repository includes the Go target
 > (`target(lang: golang)`) and the artifact-only FFI target
 > (`target(lang: ffi)`).
 
@@ -107,17 +107,17 @@ the archive for your platform:
 
 | Platform | Asset |
 | --- | --- |
-| macOS Apple Silicon | `rpl-v0.7.0-darwin-arm64.tar.gz` |
-| macOS Intel | `rpl-v0.7.0-darwin-amd64.tar.gz` |
-| Linux x86-64 | `rpl-v0.7.0-linux-amd64.tar.gz` |
-| Linux ARM64 | `rpl-v0.7.0-linux-arm64.tar.gz` |
-| Windows x86-64 | `rpl-v0.7.0-windows-amd64.zip` |
-| Windows ARM64 | `rpl-v0.7.0-windows-arm64.zip` |
+| macOS Apple Silicon | `rpl-v0.7.1-darwin-arm64.tar.gz` |
+| macOS Intel | `rpl-v0.7.1-darwin-amd64.tar.gz` |
+| Linux x86-64 | `rpl-v0.7.1-linux-amd64.tar.gz` |
+| Linux ARM64 | `rpl-v0.7.1-linux-arm64.tar.gz` |
+| Windows x86-64 | `rpl-v0.7.1-windows-amd64.zip` |
+| Windows ARM64 | `rpl-v0.7.1-windows-arm64.zip` |
 
 Every CLI archive contains:
 
 ```text
-rpl-v0.7.0-<os>-<arch>/
+rpl-v0.7.1-<os>-<arch>/
 ├── rpl or rpl.exe
 ├── .rpl/
 │   ├── attrs/
@@ -734,7 +734,7 @@ in-memory defaults are used.
   </runtimes>
   <localization>
     <language>en</language>
-    <use_color>true</use_color>
+    <color>true</color>
   </localization>
   <author_data>
     <author_name>Example Team</author_name>
@@ -746,7 +746,7 @@ in-memory defaults are used.
 | --- | --- |
 | `runtimes/directory` | project-local attr directory |
 | `localization/language` | diagnostic language (`en` or `ru`) |
-| `localization/use_color` | ANSI output for CLI diagnostics |
+| `localization/color` | ANSI output for CLI diagnostics |
 | `author_data/author_name` | author inserted into generated metadata where supported |
 
 ### Global configuration and attrs
@@ -1133,7 +1133,7 @@ Update `.rpl/config.xml`:
 ```xml
 <localization>
   <language>en</language>
-  <use_color>false</use_color>
+  <color>false</color>
 </localization>
 ```
 

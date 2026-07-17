@@ -30,7 +30,7 @@ func userSQLBuildWhere(filters map[string]any, startIndex int) (string, []any, e
 			return "", nil, fmt.Errorf("unknown sql filter column %q", key)
 		}
 
-		value, err := userSQLNormalizeFilterValue(column, filters[key])
+		value, err := userSQLNormalizeFilterValue(key, filters[key])
 		if err != nil {
 			return "", nil, err
 		}

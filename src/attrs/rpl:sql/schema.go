@@ -74,7 +74,8 @@ func generateSQLSelectStatementConst(prefix string, tableName string, fields []s
 		columns = append(columns, sqlQuotedIdentifier(field.Column))
 	}
 
-	return fmt.Sprintf("const %sSelectStatement = %q", prefix, fmt.Sprintf("SELECT %s FROM %s", strings.Join(columns, ", "), sqlQuotedIdentifier(tableName)))
+	query := fmt.Sprintf("SELECT %s FROM %s", strings.Join(columns, ", "), sqlQuotedIdentifier(tableName))
+	return fmt.Sprintf("const %sSelectStatement = `%s`", prefix, query)
 }
 
 func generateSQLOrderByConst(prefix string, fields []sqlFieldMeta, configured ...string) string {
@@ -109,7 +110,7 @@ func generateSQLOrderByConst(prefix string, fields []sqlFieldMeta, configured ..
 		orderBy = sqlQuotedIdentifier(fields[0].Column)
 	}
 
-	return fmt.Sprintf("const %sOrderByColumn = %q", prefix, orderBy)
+	return fmt.Sprintf("const %sOrderByColumn = `%s`", prefix, orderBy)
 }
 
 func generateSQLCreateStatementsVar(prefix string, tableName string, fields []sqlFieldMeta) string {
@@ -157,7 +158,7 @@ func generateSQLCreateStatementsVar(prefix string, tableName string, fields []sq
 
 	items := make([]string, 0, len(statements))
 	for _, statement := range statements {
-		items = append(items, fmt.Sprintf("%q", statement))
+		items = append(items, fmt.Sprintf("`%s`", statement))
 	}
 
 	return fmt.Sprintf("var %sCreateStatements = []string{\n\t%s,\n}", prefix, strings.Join(items, ",\n\t"))
@@ -182,7 +183,7 @@ func generateSQLInsertStatementConst(prefix string, tableName string, fields []s
 	}
 
 	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s);", sqlQuotedIdentifier(tableName), strings.Join(columns, ", "), strings.Join(placeholders, ", "))
-	return fmt.Sprintf("const %sInsertStatement = %q", prefix, query)
+	return fmt.Sprintf("const %sInsertStatement = `%s`", prefix, query)
 }
 
 func generateSQLUpsertStatementConst(prefix string, tableName string, fields []sqlFieldMeta) string {
@@ -219,7 +220,7 @@ func generateSQLUpsertStatementConst(prefix string, tableName string, fields []s
 		query += " DO UPDATE SET " + strings.Join(updateColumns, ", ") + ";"
 	}
 
-	return fmt.Sprintf("const %sUpsertStatement = %q", prefix, query)
+	return fmt.Sprintf("const %sUpsertStatement = `%s`", prefix, query)
 }
 
 func sqlConflictFields(fields []sqlFieldMeta) []sqlFieldMeta {

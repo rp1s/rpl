@@ -44,6 +44,13 @@ func TestUpdatedAtIsTouchedForEveryUpdate(t *testing.T) {
 	}
 }
 
+func TestBuildWherePassesOriginalFilterKeyToNormalizer(t *testing.T) {
+	generated := generateSQLBuildWhereFunction("userSQL")
+	if !strings.Contains(generated, `userSQLNormalizeFilterValue(key, filters[key])`) {
+		t.Fatalf("BuildWhere should pass the original filter key to NormalizeFilterValue:\n%s", generated)
+	}
+}
+
 func TestStoreWrapsFunctionalAPI(t *testing.T) {
 	generated := generateSQLStoreType("modelpkg.User", "User", "Executor", true)
 	for _, want := range []string{

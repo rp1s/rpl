@@ -57,7 +57,7 @@ type RuntimesConfig struct {
 
 type LocalizationConfig struct {
 	Language string `xml:"language"`
-	UseColor *bool  `xml:"use_color"`
+	UseColor *bool  `xml:"color"`
 }
 
 type AuthorData struct {

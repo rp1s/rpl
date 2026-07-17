@@ -102,7 +102,7 @@ func TestGlobalConfigProvidesDefaultsForProjects(t *testing.T) {
 		t.Fatalf("language = %q, want %q", loaded.Localization.Language, localize.LangRU)
 	}
 	if loaded.UseColor() {
-		t.Fatal("expected global use_color=false")
+		t.Fatal("expected global color=false")
 	}
 	if got, want := loaded.Runtimes.Directory, "attrs"; got != want {
 		t.Fatalf("runtime directory = %q, want %q", got, want)

@@ -16,13 +16,35 @@ func TestCreateStatementsUseExecutableNewlinesAndQuotedIdentifiers(t *testing.T)
 		t.Fatalf("DDL contains escaped backslash-n instead of a newline: %s", generated)
 	}
 	for _, want := range []string{
-		`CREATE TABLE IF NOT EXISTS \"group\"`,
-		`\"id\" INTEGER NOT NULL PRIMARY KEY`,
-		`CREATE INDEX IF NOT EXISTS \"idx_group_order\" ON \"group\" (\"order\")`,
+		`CREATE TABLE IF NOT EXISTS "group"`,
+		`"id" INTEGER NOT NULL PRIMARY KEY`,
+		`CREATE INDEX IF NOT EXISTS "idx_group_order" ON "group" ("order")`,
 	} {
 		if !strings.Contains(generated, want) {
 			t.Fatalf("generated DDL does not contain %q:\n%s", want, generated)
 		}
+	}
+}
+
+func TestStatementConstantsUseRawStringLiterals(t *testing.T) {
+	fields := []sqlFieldMeta{
+		{Field: "Id", Column: "id", SQLType: "INTEGER", PrimaryKey: true},
+		{Field: "Name", Column: "name", SQLType: "TEXT"},
+	}
+
+	selectStatement := generateSQLSelectStatementConst("itemSQL", "items", fields)
+	if !strings.Contains(selectStatement, "`SELECT") {
+		t.Fatalf("select statement should be emitted as a raw string literal: %s", selectStatement)
+	}
+
+	insertStatement := generateSQLInsertStatementConst("itemSQL", "items", fields)
+	if !strings.Contains(insertStatement, "`INSERT INTO") {
+		t.Fatalf("insert statement should be emitted as a raw string literal: %s", insertStatement)
+	}
+
+	createStatements := generateSQLCreateStatementsVar("itemSQL", "items", fields)
+	if !strings.Contains(createStatements, "`CREATE TABLE") {
+		t.Fatalf("create statements should be emitted as raw string literals: %s", createStatements)
 	}
 }
 
@@ -34,10 +56,10 @@ func TestUpsertUsesPrimaryKeyAsConflictTarget(t *testing.T) {
 	}
 
 	generated := generateSQLUpsertStatementConst("userSQL", "users", fields)
-	if !strings.Contains(generated, `ON CONFLICT (\"tenant_id\", \"id\")`) {
+	if !strings.Contains(generated, `ON CONFLICT ("tenant_id", "id")`) {
 		t.Fatalf("upsert does not use the composite primary key: %s", generated)
 	}
-	if !strings.Contains(generated, `\"email\" = EXCLUDED.\"email\"`) {
+	if !strings.Contains(generated, `"email" = EXCLUDED."email"`) {
 		t.Fatalf("non-key unique column should remain mutable: %s", generated)
 	}
 }
@@ -50,10 +72,10 @@ func TestUpsertWithMultipleUniqueColumnsUsesOneRealConstraint(t *testing.T) {
 	}
 
 	generated := generateSQLUpsertStatementConst("userSQL", "users", fields)
-	if !strings.Contains(generated, `ON CONFLICT (\"id\")`) {
+	if !strings.Contains(generated, `ON CONFLICT ("id")`) {
 		t.Fatalf("upsert does not target the first concrete unique constraint: %s", generated)
 	}
-	if strings.Contains(generated, `ON CONFLICT (\"id\", \"email\")`) {
+	if strings.Contains(generated, `ON CONFLICT ("id", "email")`) {
 		t.Fatalf("upsert targets a composite constraint that does not exist: %s", generated)
 	}
 }
@@ -84,7 +106,7 @@ func TestOrderByUsesConfiguredFieldOrColumn(t *testing.T) {
 	}
 	for _, configured := range []string{"CreatedAt", "created_at"} {
 		generated := generateSQLOrderByConst("eventSQL", fields, configured)
-		if !strings.Contains(generated, `\"created_at\"`) {
+		if !strings.Contains(generated, `"created_at"`) {
 			t.Fatalf("configured orderBy %q was ignored: %s", configured, generated)
 		}
 	}

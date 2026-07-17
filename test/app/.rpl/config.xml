@@ -5,7 +5,7 @@
   </runtimes>
   <localization>
     <language>ru</language>
-    <use_color>true</use_color>
+    <color>true</color>
   </localization>
   <author_data>
     <author_name>rpl</author_name>
