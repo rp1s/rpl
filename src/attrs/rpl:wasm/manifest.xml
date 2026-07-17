@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<attr>
+  <name>wasm</name>
+  <author>rpl</author>
+  <version>0.1.0</version>
+  <displayName>WebAssembly Component Attr</displayName>
+  <description>Generates WIT contracts, Rust guest bindings, Wasmtime host bindings, and a sandboxed plugin manifest</description>
+  <entry>attr</entry>
+  <sdkVersion>2</sdkVersion>
+</attr>

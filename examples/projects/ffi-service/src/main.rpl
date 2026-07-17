@@ -6,7 +6,7 @@ attrs (
     "rpl:ffi"
 )
 
-@ffi(server: "rust", clients: "go,python,c,rust", library: "calculator", prefix: "calculator")
+@ffi(server: "rust", clients: "go,go:purego,python,c,rust", library: "calculator", prefix: "calculator")
 model CalculatorService {
     Name string
 

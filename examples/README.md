@@ -31,6 +31,7 @@ sense on specific transports.
 - `08-mongodb` - ObjectID, sparse/unique indexes, BSON names, search/sort, CRUD/watch helpers
 - `09-transport` - six adapters, multi-adapter, subject binding, and method-only services
 - `10-ffi` - stable C ABI, C/Rust servers, and Go/Python/C/Rust clients
+- `11-wasm` - WIT contracts, Rust Component guests, and typed Wasmtime hosts
 - `99-showcase` - large end-to-end examples
 - `projects` - five complete applications that are regenerated and compiled in CI
 
@@ -52,6 +53,7 @@ sense on specific transports.
 | Build local process IPC | `09-transport/01-os-bin-service.rpl` then `projects/process-service` |
 | Expose only selected transport methods | `09-transport/09-method-only-adapters.rpl` |
 | Build a native cross-language library | `10-ffi/01-rust-server-all-clients.rpl` |
+| Build a sandboxed application plugin | `11-wasm/01-rust-component.rpl` |
 | Inspect most features together | `99-showcase/main.rpl` |
 
 ## Run An Example
@@ -62,6 +64,7 @@ From the repository root:
 go -C src run ./cmd run ../examples/05-grpc/01-basic-service.rpl out /tmp/rpl-out
 go -C src run ./cmd run ../examples/09-transport/01-os-bin-service.rpl out /tmp/rpl-transport
 go -C src run ./cmd run ../examples/10-ffi/01-rust-server-all-clients.rpl out /tmp/rpl-ffi
+go -C src run ./cmd run ../examples/11-wasm/01-rust-component.rpl out /tmp/rpl-wasm
 ```
 
 For package-based examples, run the main file in that folder:
@@ -101,7 +104,7 @@ generator, while a clean-room project test proves schema, config, attrs, module
 imports, generated code, and handwritten consumers still agree.
 
 `TestFocusedAttrExamplesGenerate` separately copies and generates every `.rpl`
-file from the eight plugin cookbook folders. This keeps even the small examples
+file from the nine plugin cookbook folders. This keeps even the small examples
 executable instead of treating them as unchecked documentation snippets.
 
 ## Global Attr Setup for Examples
@@ -135,6 +138,8 @@ priority than the global one.
   modes restrict individual operations to one adapter.
 - The `ffi` examples generate a canonical header plus selected server/client
   languages. Rust, C, Python, and Go syntax are verified by plugin tests.
+- The `wasm` examples use WIT and the Component Model rather than the native
+  FFI ABI. Rust guest/host scaffolds are generated without exposing linear memory.
 - Do not edit generated `*.gen.go` or `.proto` files. Change the schema, rerun
   RPL, and keep handwritten policy inside `internal/` or `cmd/`.
 - Every full project README explains the generated API, testing boundary,

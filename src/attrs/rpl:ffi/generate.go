@@ -54,13 +54,17 @@ func generateFFIResponse(plan *ffiPlan) sdk.GenerateResponse {
 		files = append(files, sdk.GeneratedFile{Path: "ffi/c/" + ffiCName(plan.Model.Name) + "_client.c", Content: generateFFICClient(plan)})
 	}
 	if plan.Clients["go"] {
-		files = append(files,
-			sdk.GeneratedFile{Path: "ffi/go/client.gen.go", Content: generateFFIGoClient(plan)},
-			sdk.GeneratedFile{Path: "ffi/go/native_cgo.gen.go", Content: generateFFIGoCGO(plan)},
-			sdk.GeneratedFile{Path: "ffi/go/native_purego.gen.go", Content: generateFFIGoPureGo(plan)},
-			sdk.GeneratedFile{Path: "ffi/go/native_purego_unix.gen.go", Content: generateFFIGoPureGoUnix()},
-			sdk.GeneratedFile{Path: "ffi/go/native_purego_windows.gen.go", Content: generateFFIGoPureGoWindows()},
-		)
+		files = append(files, sdk.GeneratedFile{Path: "ffi/go/client.gen.go", Content: generateFFIGoClient(plan)})
+		if plan.GoClientModes["cgo"] {
+			files = append(files, sdk.GeneratedFile{Path: "ffi/go/native_cgo.gen.go", Content: generateFFIGoCGO(plan)})
+		}
+		if plan.GoClientModes["purego"] {
+			files = append(files,
+				sdk.GeneratedFile{Path: "ffi/go/native_purego.gen.go", Content: generateFFIGoPureGo(plan)},
+				sdk.GeneratedFile{Path: "ffi/go/native_purego_unix.gen.go", Content: generateFFIGoPureGoUnix()},
+				sdk.GeneratedFile{Path: "ffi/go/native_purego_windows.gen.go", Content: generateFFIGoPureGoWindows()},
+			)
+		}
 	}
 	if plan.Clients["python"] {
 		files = append(files, sdk.GeneratedFile{Path: "ffi/python/" + ffiCName(plan.Model.Name) + "_ffi.py", Content: generateFFIPythonClient(plan)})
@@ -77,7 +81,7 @@ func generateFFIResponse(plan *ffiPlan) sdk.GenerateResponse {
 func generateFFISchema(plan *ffiPlan) string {
 	schema := ffiSchema{
 		ABI: plan.ABIVersion, Model: plan.Model.Name, Prefix: plan.Prefix, Library: plan.Library,
-		Servers: ffiSelectedLanguages(plan.Servers), Clients: ffiSelectedLanguages(plan.Clients),
+		Servers: ffiSelectedLanguages(plan.Servers), Clients: ffiSelectedClients(plan),
 	}
 	for _, field := range plan.Fields {
 		schema.Fields = append(schema.Fields, ffiSchemaField{Name: field.Name, WireName: field.WireName, Type: field.Type})
@@ -104,6 +108,29 @@ func ffiSelectedLanguages(values map[string]bool) []string {
 	for name, enabled := range values {
 		if enabled {
 			items = append(items, name)
+		}
+	}
+	sort.Strings(items)
+	return items
+}
+
+func ffiSelectedClients(plan *ffiPlan) []string {
+	if plan == nil {
+		return nil
+	}
+	items := make([]string, 0, len(plan.Clients)+len(plan.GoClientModes))
+	for name, enabled := range plan.Clients {
+		if !enabled || name == "go" {
+			continue
+		}
+		items = append(items, name)
+	}
+	if plan.Clients["go"] {
+		if plan.GoClientModes["cgo"] {
+			items = append(items, "go")
+		}
+		if plan.GoClientModes["purego"] {
+			items = append(items, "go:purego")
 		}
 	}
 	sort.Strings(items)

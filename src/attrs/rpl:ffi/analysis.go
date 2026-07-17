@@ -12,14 +12,14 @@ var ffiModelSpec = sdk.AttrSpec{
 	Help:      sdk.Text("FFI генерирует C ABI, серверы C/Rust и клиенты Go/Python/C/Rust.", "FFI generates a C ABI, C/Rust servers, and Go/Python/C/Rust clients."),
 	Args: []sdk.AttrArgSpec{
 		{Name: "server", Types: []sdk.AttrValueType{sdk.AttrValueTypeStringLike}, Help: sdk.Text("c, rust, c,rust или none", "c, rust, c,rust, or none")},
-		{Name: "clients", Types: []sdk.AttrValueType{sdk.AttrValueTypeStringLike}, Help: sdk.Text("Список: go,python,c,rust", "List: go,python,c,rust")},
+		{Name: "clients", Types: []sdk.AttrValueType{sdk.AttrValueTypeStringLike}, Help: sdk.Text("Список: go, go:purego, python, c, rust", "List: go, go:purego, python, c, rust")},
 		{Name: "library", Types: []sdk.AttrValueType{sdk.AttrValueTypeStringLike}},
 		{Name: "prefix", Types: []sdk.AttrValueType{sdk.AttrValueTypeStringLike}},
 		{Name: "abiVersion", Types: []sdk.AttrValueType{sdk.AttrValueTypeNumber}},
 	},
 	Snippets: []sdk.AttrSnippetSpec{
-		{Label: "@ffi(rust + all clients)", Insert: "@ffi(server: \"rust\", clients: \"go,python,c,rust\")", Help: sdk.Text("Rust-сервер и все клиенты.", "Rust server and every client binding.")},
-		{Label: "@ffi(c)", Insert: "@ffi(server: \"c\", clients: \"go,python,c,rust\")", Help: sdk.Text("C-сервер и все клиенты.", "C server and every client binding.")},
+		{Label: "@ffi(rust + all clients)", Insert: "@ffi(server: \"rust\", clients: \"go,go:purego,python,c,rust\")", Help: sdk.Text("Rust-сервер и все клиенты.", "Rust server and every client binding.")},
+		{Label: "@ffi(c)", Insert: "@ffi(server: \"c\", clients: \"go,go:purego,python,c,rust\")", Help: sdk.Text("C-сервер и все клиенты.", "C server and every client binding.")},
 	},
 }
 
@@ -108,8 +108,8 @@ func validateFFIModelConfig(builder *sdk.AnalyzeBuilder, attr sdk.Attr, model sd
 		}
 	}
 	if raw := strings.TrimSpace(values["clients"].String()); raw != "" {
-		if _, err := parseFFILanguages(raw, "all", ffiClientLanguages); err != nil {
-			builder.AddDiagnostic(sdk.DiagnosticAt(attr, err.Error(), "Supported FFI clients: go, python, c, and rust."))
+		if _, _, err := parseFFIClients(raw, "all"); err != nil {
+			builder.AddDiagnostic(sdk.DiagnosticAt(attr, err.Error(), "Supported FFI clients: go, go:purego, python, c, and rust."))
 		}
 	}
 }

@@ -13,10 +13,11 @@ cargo test --manifest-path generated/calculator_service/ffi/rust/Cargo.toml
 ```
 
 The Go test uses the generated `NativeABI` seam, so domain/client behavior is
-testable without loading a dynamic library. For a cgo-free production client,
-build with `CGO_ENABLED=0 -tags rpl_ffi_purego` and open the Rust library with
-`OpenPureGoFromFactory`. The alternative cgo bridge remains available through
-`-tags rpl_ffi_cgo` and `CGO_LDFLAGS`.
+testable without loading a dynamic library. The schema selects both `go` and
+`go:purego`: plain `go` emits the cgo bridge, and `go:purego` emits the
+cgo-free loader. For a cgo-free production client, build with
+`CGO_ENABLED=0 -tags rpl_ffi_purego` and open the Rust library with
+`OpenPureGoFromFactory`.
 
 The generated Rust crate contains the `FFIService` trait. Implement it, create
 a raw handle with `into_raw_server`, and optionally export an application

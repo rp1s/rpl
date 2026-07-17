@@ -15,7 +15,7 @@ attrs (
 
 @ffi(
     server: "rust",
-    clients: "go,python,c,rust",
+    clients: "go,go:purego,python,c,rust",
     library: "calculator",
     prefix: "calculator",
     abiVersion: 1,
@@ -40,7 +40,8 @@ to be a normal Go domain model.
 Model arguments:
 
 - `server`: `c`, `rust`, `c,rust`, or `none`; default is `rust`;
-- `clients`: comma-separated `go`, `python`, `c`, and `rust`; default is all;
+- `clients`: comma-separated `go`, `go:purego`, `python`, `c`, and `rust`;
+  default is all language clients with the cgo Go bridge;
 - `library`: native library link/load name;
 - `prefix`: stable C symbol prefix; defaults to the snake_case model name;
 - `abiVersion`: positive ABI version exposed in the header and libraries.
@@ -71,10 +72,13 @@ ffi/
     └── src/lib.rs             typed trait server and/or native client
 ```
 
-Only selected languages are emitted. The header and `schema.json` are always
-generated so an additional language binding can be implemented independently.
-Selecting `c,rust` emits two alternative server implementations with the same
-symbols; build one of them into a particular native library, not both together.
+Only selected languages are emitted. `clients: "go"` selects the ordinary cgo
+Go bridge; `clients: "go:purego"` selects the cgo-free dynamic loader; and
+`clients: "go,go:purego"` or `clients: "go:all"` selects both. The header and
+`schema.json` are always generated so an additional language binding can be
+implemented independently. Selecting `c,rust` emits two alternative server
+implementations with the same symbols; build one of them into a particular
+native library, not both together.
 
 ## ABI and ownership
 
@@ -153,7 +157,7 @@ matching `*_ffi_buffer_free` function can release them safely.
 ## Go client
 
 The portable Go API depends on `NativeABI`, making it easy to test without a
-native library. The recommended native mode uses
+native library. Select the cgo-free loader with `clients: "go:purego"`. It uses
 [`ebitengine/purego`](https://github.com/ebitengine/purego) and does not require
 a C compiler while building the Go application:
 
@@ -180,7 +184,7 @@ systems and the Windows DLL API on Windows. `PureGoNative.Close` destroys a
 factory-owned server and unloads the library; a handle passed to `OpenPureGo`
 remains owned by the caller.
 
-The cgo implementation remains available as an alternative:
+The cgo implementation is selected with `clients: "go"`:
 
 ```bash
 go build -tags rpl_ffi_cgo ./...

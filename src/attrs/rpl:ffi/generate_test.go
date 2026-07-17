@@ -111,6 +111,68 @@ func TestParseFFILanguagesSupportsListsAllAndNone(t *testing.T) {
 	}
 }
 
+func TestParseFFIClientsTreatsGoAsCGOAndPureGoAsExplicitMode(t *testing.T) {
+	clients, goModes, err := parseFFIClients("go,python", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !clients["go"] || !clients["python"] {
+		t.Fatalf("clients were not selected: %#v", clients)
+	}
+	if !goModes["cgo"] || goModes["purego"] {
+		t.Fatalf("go should select only cgo by default: %#v", goModes)
+	}
+
+	clients, goModes, err = parseFFIClients("go:purego,c", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !clients["go"] || !clients["c"] {
+		t.Fatalf("clients were not selected: %#v", clients)
+	}
+	if goModes["cgo"] || !goModes["purego"] {
+		t.Fatalf("go:purego should select only purego: %#v", goModes)
+	}
+
+	_, goModes, err = parseFFIClients("go:all", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !goModes["cgo"] || !goModes["purego"] {
+		t.Fatalf("go:all should select both Go modes: %#v", goModes)
+	}
+}
+
+func TestFFIGoClientModesControlGeneratedNativeFiles(t *testing.T) {
+	plan := ffiTestPlan()
+	plan.Clients = map[string]bool{"go": true}
+	plan.GoClientModes = map[string]bool{"cgo": true}
+	response := generateFFIResponse(plan)
+	files := make(map[string]bool)
+	for _, file := range response.Files {
+		files[file.Path] = true
+	}
+	if !files["ffi/go/client.gen.go"] || !files["ffi/go/native_cgo.gen.go"] {
+		t.Fatalf("cgo Go client files are missing: %#v", files)
+	}
+	if files["ffi/go/native_purego.gen.go"] || files["ffi/go/native_purego_unix.gen.go"] || files["ffi/go/native_purego_windows.gen.go"] {
+		t.Fatalf("purego files should require go:purego: %#v", files)
+	}
+
+	plan.GoClientModes = map[string]bool{"purego": true}
+	response = generateFFIResponse(plan)
+	files = make(map[string]bool)
+	for _, file := range response.Files {
+		files[file.Path] = true
+	}
+	if !files["ffi/go/client.gen.go"] || !files["ffi/go/native_purego.gen.go"] || !files["ffi/go/native_purego_unix.gen.go"] || !files["ffi/go/native_purego_windows.gen.go"] {
+		t.Fatalf("purego Go client files are missing: %#v", files)
+	}
+	if files["ffi/go/native_cgo.gen.go"] {
+		t.Fatalf("cgo file should require go or go:cgo: %#v", files)
+	}
+}
+
 func testGeneratedCClient(t *testing.T, root string, compiler string) {
 	t.Helper()
 	cDir := filepath.Join(root, "ffi", "c")
@@ -335,6 +397,10 @@ func ffiTestPlan() *ffiPlan {
 		ABIVersion: 1,
 		Servers:    map[string]bool{"c": true, "rust": true},
 		Clients:    map[string]bool{"go": true, "python": true, "c": true, "rust": true},
+		GoClientModes: map[string]bool{
+			"cgo":    true,
+			"purego": true,
+		},
 		Fields: []ffiField{
 			{Name: "ID", WireName: "id", Type: sdk.TypeRef{Name: "int64"}},
 			{Name: "Name", WireName: "name", Type: sdk.TypeRef{Name: "string", Optional: true}},

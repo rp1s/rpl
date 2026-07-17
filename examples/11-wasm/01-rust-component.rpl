@@ -1,0 +1,26 @@
+target(lang: ffi)
+
+attrs (
+    "rpl:wasm"
+)
+
+@wasm(
+    wit: "example:users@1.0.0",
+    world: "user-plugin",
+    interface: "user-service",
+    guest: "rust",
+    hosts: "rust",
+    memory: 67108864,
+    timeout: 1000,
+    fuel: 10000000,
+)
+model UserService {
+    Id uint64
+    Name string
+    Email string?
+    Tags []string
+
+    func GetUser (id uint64) return (UserService?, error)
+    func Save (user UserService) return (uint64, error)
+    func List return ([]UserService, error)
+}

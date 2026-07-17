@@ -16,13 +16,13 @@ The project includes:
 - a CLI for projects, generation, formatting, imports, docs, and attrs;
 - a newline-oriented JSON runtime used by editor integrations;
 - a public Go SDK for writing generator attrs;
-- eight bundled `rpl:*` attrs;
+- nine bundled `rpl:*` attrs;
 - a VS Code extension with diagnostics, completion, CodeLens, navigation,
   tasks, and toolchain management;
 - examples, integration fixtures, and release builds for six OS/architecture
   combinations.
 
-> Current release: **RPL 0.7.1**. The repository includes the Go target
+> Current release: **RPL 0.7.2**. The repository includes the Go target
 > (`target(lang: golang)`) and the artifact-only FFI target
 > (`target(lang: ffi)`).
 
@@ -107,17 +107,17 @@ the archive for your platform:
 
 | Platform | Asset |
 | --- | --- |
-| macOS Apple Silicon | `rpl-v0.7.1-darwin-arm64.tar.gz` |
-| macOS Intel | `rpl-v0.7.1-darwin-amd64.tar.gz` |
-| Linux x86-64 | `rpl-v0.7.1-linux-amd64.tar.gz` |
-| Linux ARM64 | `rpl-v0.7.1-linux-arm64.tar.gz` |
-| Windows x86-64 | `rpl-v0.7.1-windows-amd64.zip` |
-| Windows ARM64 | `rpl-v0.7.1-windows-arm64.zip` |
+| macOS Apple Silicon | `rpl-v0.7.2-darwin-arm64.tar.gz` |
+| macOS Intel | `rpl-v0.7.2-darwin-amd64.tar.gz` |
+| Linux x86-64 | `rpl-v0.7.2-linux-amd64.tar.gz` |
+| Linux ARM64 | `rpl-v0.7.2-linux-arm64.tar.gz` |
+| Windows x86-64 | `rpl-v0.7.2-windows-amd64.zip` |
+| Windows ARM64 | `rpl-v0.7.2-windows-arm64.zip` |
 
 Every CLI archive contains:
 
 ```text
-rpl-v0.7.1-<os>-<arch>/
+rpl-v0.7.2-<os>-<arch>/
 ├── rpl or rpl.exe
 ├── .rpl/
 │   ├── attrs/
@@ -128,7 +128,8 @@ rpl-v0.7.1-<os>-<arch>/
 │   │   ├── rpl_redis/
 │   │   ├── rpl_grpc/
 │   │   ├── rpl_transport/
-│   │   └── rpl_ffi/
+│   │   ├── rpl_ffi/
+│   │   └── rpl_wasm/
 │   └── sdk/
 │       ├── go.mod
 │       └── pkg/sdk/
@@ -440,7 +441,8 @@ See [`examples/06-multifile`](examples/06-multifile) and
 | `rpl:redis` | 1.1.0 | Redis keys, hash storage, custom names, typed defaults, TTL |
 | `rpl:grpc` | 1.0.0 | `.proto`, protobuf Go, gRPC services, clients, conversions |
 | `rpl:transport` | 2.1.0 | shared service contracts, routing defaults, and six delivery adapters |
-| `rpl:ffi` | 1.1.0 | stable C ABI, C/Rust servers, Go/Python/C/Rust clients, cgo-free purego mode |
+| `rpl:ffi` | 1.1.0 | stable C ABI, C/Rust servers, Go/Python/C/Rust clients, cgo-free `go:purego` client |
+| `rpl:wasm` | 0.1.0 | WIT contract, Rust Component guest, typed Wasmtime host, deny-by-default manifest |
 
 ### `rpl:std`
 
@@ -597,7 +599,7 @@ FFI turns model methods into a versioned in-process ABI:
 ```rpl
 target(lang: ffi)
 
-@ffi(server: "rust", clients: "go,python,c,rust", library: "calculator")
+@ffi(server: "rust", clients: "go,go:purego,python,c,rust", library: "calculator")
 model CalculatorService {
     func Add (left int64, right int64) return (int64)
     func Stats return (int64, float64)
@@ -615,15 +617,54 @@ payloads use UTF-8 JSON so lists, optional values, nested models, and future
 fields do not depend on a language-specific object layout.
 
 Rust servers receive typed request/response structures and an `FFIService`
-trait. C servers implement the generated callback vtable. Go receives a
-testable `NativeABI` client, a cgo-free
-[`purego`](https://github.com/ebitengine/purego) dynamic loader, and an optional
-cgo implementation; Python uses `ctypes`; C and Rust clients call the same
-header contract. Build the pure-Go mode with
+trait. C servers implement the generated callback vtable. `clients: "go"`
+emits the normal cgo Go bridge, while `clients: "go:purego"` emits the cgo-free
+[`purego`](https://github.com/ebitengine/purego) dynamic loader. Use
+`clients: "go,go:purego"` when both Go modes are useful. Python uses `ctypes`;
+C and Rust clients call the same header contract. Build the pure-Go client with
 `CGO_ENABLED=0 -tags rpl_ffi_purego`.
 
 See the complete [`FFI attr guide`](src/attrs/rpl:ffi/README.md) and
 [`FFI examples`](examples/10-ffi/README.md).
+
+### `rpl:wasm`
+
+WASM is a separate application-plugin boundary built on WIT and the Component
+Model. It does not reuse the native FFI trampoline or expose linear memory:
+
+```rpl
+target(lang: ffi)
+
+attrs (
+    "rpl:wasm"
+)
+
+@wasm(
+    wit: "example:users@1.0.0",
+    world: "user-plugin",
+    interface: "user-service",
+    guest: "rust",
+    hosts: "rust",
+)
+model UserService {
+    Id uint64
+    Name string
+    Tags []string
+
+    func GetUser (id uint64) return (UserService?, error)
+    func List return ([]UserService, error)
+}
+```
+
+The output contains `world.wit`, a normalized IR snapshot, a deny-by-default
+plugin manifest, a Rust `wit-bindgen` guest crate, and typed Wasmtime host
+bindings. A final RPL `error` return lowers to WIT `result<T, string>`; traps
+remain runtime errors. Go guest/host generation is intentionally disabled until
+it has a reproducible Component Model end-to-end test in this repository.
+
+See the [`WASM attr guide`](src/attrs/rpl:wasm/README.md),
+[`WASM examples`](examples/11-wasm/README.md), and the
+[`FFI/WASM architecture decision`](docs/ffi-and-wasm-plugins.md).
 
 ## CLI reference
 
@@ -918,6 +959,7 @@ Extension source and additional documentation live in
 | `08-mongodb` | ObjectID/BSON conversion, sparse indexes, search/sort, CRUD/watch |
 | `09-transport` | six adapters, multi-routing, subjects, method-only services |
 | `10-ffi` | C ABI, C/Rust servers, Go/Python/C/Rust clients |
+| `11-wasm` | WIT, Rust Component guest, typed Wasmtime host, sandbox manifest |
 | `99-showcase` | end-to-end combinations of built-in attrs |
 | `projects` | standalone Go modules with app code, commands, and tests |
 
@@ -944,7 +986,7 @@ Each project contains its own `.rpl/config.xml`, `go.mod`, `cmd/`, `internal/`,
 README, and tests. Generated files are excluded so CI proves they can always be
 recreated from the schema.
 
-The eight plugin cookbook folders contain focused schemas. Every folder has
+The nine plugin cookbook folders contain focused schemas. Every folder has
 a feature-matrix README, and the compiler test suite regenerates every schema
 in isolation so examples cannot silently become stale.
 
@@ -966,7 +1008,8 @@ in isolation so examples cannot silently become stale.
 │   │   ├── rpl:redis/
 │   │   ├── rpl:grpc/
 │   │   ├── rpl:transport/
-│   │   └── rpl:ffi/
+│   │   ├── rpl:ffi/
+│   │   └── rpl:wasm/
 │   ├── cmd/                     CLI entrypoint
 │   ├── internal/
 │   │   ├── cli/                 command implementations

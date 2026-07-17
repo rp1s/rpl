@@ -5,7 +5,7 @@ import (
 	"rpl/pkg/error/localize"
 )
 
-var Version = "0.7.1"
+var Version = "0.7.2"
 
 var Author *string
 

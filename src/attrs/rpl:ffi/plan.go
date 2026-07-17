@@ -34,14 +34,15 @@ var ffiPythonKeywords = map[string]bool{
 }
 
 type ffiPlan struct {
-	Model      sdk.Model
-	Prefix     string
-	Library    string
-	ABIVersion int64
-	Servers    map[string]bool
-	Clients    map[string]bool
-	Fields     []ffiField
-	Methods    []ffiMethod
+	Model         sdk.Model
+	Prefix        string
+	Library       string
+	ABIVersion    int64
+	Servers       map[string]bool
+	Clients       map[string]bool
+	GoClientModes map[string]bool
+	Fields        []ffiField
+	Methods       []ffiMethod
 }
 
 type ffiField struct {
@@ -86,18 +87,19 @@ func buildFFIPlan(req sdk.GenerateRequest) (*ffiPlan, error) {
 	if err != nil {
 		return nil, fmt.Errorf("ffi server: %w", err)
 	}
-	clients, err := parseFFILanguages(values["clients"].String(), "go,python,c,rust", ffiClientLanguages)
+	clients, goClientModes, err := parseFFIClients(values["clients"].String(), "go,python,c,rust")
 	if err != nil {
 		return nil, fmt.Errorf("ffi clients: %w", err)
 	}
 
 	plan := &ffiPlan{
-		Model:      req.Model,
-		Prefix:     prefix,
-		Library:    library,
-		ABIVersion: abiVersion,
-		Servers:    servers,
-		Clients:    clients,
+		Model:         req.Model,
+		Prefix:        prefix,
+		Library:       library,
+		ABIVersion:    abiVersion,
+		Servers:       servers,
+		Clients:       clients,
+		GoClientModes: goClientModes,
 	}
 	for _, field := range req.Model.ActiveFields("ffi") {
 		wireName := ffiConfiguredName(field.ResolvedValues("ffi"), sdk.SnakeCase(field.Name))
@@ -165,6 +167,52 @@ func parseFFILanguages(raw string, fallback string, allowed map[string]bool) (ma
 		selected[item] = true
 	}
 	return selected, nil
+}
+
+func parseFFIClients(raw string, fallback string) (map[string]bool, map[string]bool, error) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		value = fallback
+	}
+	clients := make(map[string]bool)
+	goModes := make(map[string]bool)
+	for _, item := range strings.FieldsFunc(strings.ToLower(value), func(r rune) bool {
+		return r == ',' || r == ';' || r == ' ' || r == '\t' || r == '\n'
+	}) {
+		item = strings.TrimSpace(item)
+		switch item {
+		case "":
+			continue
+		case "none":
+			clients = make(map[string]bool)
+			goModes = make(map[string]bool)
+			continue
+		case "all":
+			for name := range ffiClientLanguages {
+				clients[name] = true
+			}
+			goModes["cgo"] = true
+			continue
+		case "go", "go:cgo":
+			clients["go"] = true
+			goModes["cgo"] = true
+			continue
+		case "purego", "go:purego":
+			clients["go"] = true
+			goModes["purego"] = true
+			continue
+		case "go:all", "go:both":
+			clients["go"] = true
+			goModes["cgo"] = true
+			goModes["purego"] = true
+			continue
+		}
+		if !ffiClientLanguages[item] || item == "go" {
+			return nil, nil, fmt.Errorf("unsupported client %q; use c, rust, python, go, go:purego, or go:all", item)
+		}
+		clients[item] = true
+	}
+	return clients, goModes, nil
 }
 
 func ffiExportedName(name string) string {
