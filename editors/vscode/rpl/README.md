@@ -17,7 +17,8 @@
 - подсветка `.rpl`, snippets и автодополнение ключевых слов, моделей и target-типов;
 - динамический каталог attrs из установленного RPL;
 - completion и hover по `AttrSpec`: аргументы, типы, help и capabilities;
-- живая диагностика настоящего parser/compiler RPL;
+- workspace-диагностика настоящего parser/compiler RPL: ошибки сохраняются у
+  закрытых файлов и подсвечивают файлы/папки в Explorer;
 - quick fixes для отсутствующих attrs и импортов;
 - formatter и автоматическое форматирование при сохранении;
 - автоматическая установка `attrs (...)` и Go `import (...)` при сохранении.
@@ -45,7 +46,7 @@
 ## Настройки
 
 - `rpl.binaryPath` - путь к RPL CLI;
-- `rpl.enableDiagnostics` - живая диагностика;
+- `rpl.enableDiagnostics` - постоянная диагностика всех `.rpl` файлов workspace;
 - `rpl.enableCompletions` - completion provider;
 - `rpl.autoSetImportsOnSave` - attrs и imports при сохранении;
 - `rpl.formatOnSave` - форматирование при сохранении; выбранная форма attrs

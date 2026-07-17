@@ -802,7 +802,7 @@ and the compiler invokes only supported capabilities.
 
 ## VS Code extension
 
-Download `rpl-vscode-0.6.0.vsix` from the release and run:
+Download `rpl-language-support-0.6.1.vsix` from the release and run:
 
 ```text
 Extensions: Install from VSIX...
@@ -817,7 +817,8 @@ with `RPL: Select CLI Binary`.
 - completion for keywords, models, target types, structures, attrs, and attr
   arguments discovered from the active runtime;
 - hover documentation sourced from `AttrSpec`;
-- live compiler diagnostics;
+- persistent workspace compiler diagnostics, including closed `.rpl` files and
+  Explorer file/folder problem decorations;
 - quick fixes for missing attrs and Go imports;
 - document formatting and optional format-on-save;
 - automatic import/attr insertion on save;

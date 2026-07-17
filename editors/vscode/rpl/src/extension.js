@@ -4,6 +4,7 @@ const path = require("node:path");
 const readline = require("node:readline");
 const { mergeCatalogSpecEntries, normalizeCatalogSpec } = require("./attrSpecs");
 const { parseRplDocument } = require("./documentModel");
+const { WorkspaceDiagnosticController } = require("./diagnosticController");
 
 const LANGUAGE_ID = "rpl";
 const DEFAULT_RUNTIME_IDS = [
@@ -424,31 +425,21 @@ function activate(context) {
   const diagnostics = vscode.languages.createDiagnosticCollection("rpl");
   const status = new RplStatus();
   const workspaceProvider = new RplWorkspaceProvider(catalog);
-  const timers = new Map();
   const suggestTimers = new Map();
 
+  const diagnosticController = new WorkspaceDiagnosticController({
+    diagnostics,
+    enabled: () => vscode.workspace.getConfiguration("rpl").get("enableDiagnostics", true),
+    validate: (document) => validateDocument(document, client, diagnostics, output, status),
+    openDocument: (uri) => vscode.workspace.openTextDocument(uri),
+    findFiles: () => vscode.workspace.findFiles("**/*.rpl", "**/{.git,node_modules,vendor,build,out}/**"),
+    isRplDocument: (document) => document && document.languageId === LANGUAGE_ID,
+    onError: (error) => output.appendLine(`Workspace diagnostics: ${errorMessage(error)}`),
+    delay: 180
+  });
+
   const scheduleValidation = (document) => {
-    if (!document || document.languageId !== LANGUAGE_ID) {
-      return;
-    }
-
-    const enabled = vscode.workspace.getConfiguration("rpl").get("enableDiagnostics", true);
-    if (!enabled) {
-      diagnostics.delete(document.uri);
-      return;
-    }
-
-    const key = document.uri.toString();
-    const current = timers.get(key);
-    if (current) {
-      clearTimeout(current);
-    }
-
-    const timer = setTimeout(() => {
-      timers.delete(key);
-      validateDocument(document, client, diagnostics, output, status);
-    }, 180);
-    timers.set(key, timer);
+    diagnosticController.scheduleDocument(document);
   };
 
   const scheduleAttrArgSuggest = (document) => {
@@ -488,6 +479,7 @@ function activate(context) {
   context.subscriptions.push(
     output,
     diagnostics,
+    diagnosticController,
     status,
     workspaceProvider,
     vscode.window.registerTreeDataProvider("rpl.workspace", workspaceProvider),
@@ -705,10 +697,7 @@ function activate(context) {
       await client.restart();
       output.appendLine("RPL runtime restarted.");
       status.setIdle("Runtime перезапущен");
-      const active = vscode.window.activeTextEditor;
-      if (active && active.document.languageId === LANGUAGE_ID) {
-        scheduleValidation(active.document);
-      }
+      await diagnosticController.validateWorkspace();
     }),
     vscode.commands.registerCommand("rpl.refreshAttrs", async () => {
       catalog.invalidate();
@@ -720,7 +709,9 @@ function activate(context) {
     vscode.workspace.onDidOpenTextDocument(scheduleValidation),
     vscode.workspace.onDidSaveTextDocument(scheduleValidation),
     vscode.workspace.onDidCloseTextDocument((document) => {
-      diagnostics.delete(document.uri);
+      if (document.languageId === LANGUAGE_ID && document.uri.scheme === "file") {
+        diagnosticController.handleClose(document);
+      }
       const key = document.uri.toString();
       const timer = suggestTimers.get(key);
       if (timer) {
@@ -743,9 +734,7 @@ function activate(context) {
         await client.restart();
         workspaceProvider.refresh();
         status.updateVisibility();
-        for (const document of vscode.workspace.textDocuments) {
-          scheduleValidation(document);
-        }
+        await diagnosticController.validateWorkspace();
       }
     })
   );
@@ -828,9 +817,18 @@ function activate(context) {
   const workspaceWatcher = vscode.workspace.createFileSystemWatcher("**/*.rpl");
   context.subscriptions.push(
     workspaceWatcher,
-    workspaceWatcher.onDidCreate(() => workspaceProvider.refresh()),
-    workspaceWatcher.onDidDelete(() => workspaceProvider.refresh()),
-    workspaceWatcher.onDidChange(() => workspaceProvider.refresh())
+    workspaceWatcher.onDidCreate((uri) => {
+      workspaceProvider.refresh();
+      diagnosticController.scheduleUri(uri);
+    }),
+    workspaceWatcher.onDidDelete((uri) => {
+      workspaceProvider.refresh();
+      diagnosticController.handleDelete(uri);
+    }),
+    workspaceWatcher.onDidChange((uri) => {
+      workspaceProvider.refresh();
+      diagnosticController.scheduleUri(uri);
+    })
   );
 
   context.subscriptions.push(vscode.tasks.registerTaskProvider("rpl", {
@@ -852,9 +850,7 @@ function activate(context) {
     }
   }));
 
-  for (const document of vscode.workspace.textDocuments) {
-    scheduleValidation(document);
-  }
+  diagnosticController.validateWorkspace();
 }
 
 function provideRplDocumentSymbols(document) {
@@ -1435,7 +1431,7 @@ async function validateDocument(document, client, diagnostics, output, status) {
     if (items.length === 0 && response && response.ok === false) {
       diagnostics.set(document.uri, [runtimeDiagnostic(document, "RPL не смог проверить файл.", "Компилятор вернул неуспешный ответ без списка diagnostics.")]);
       if (status) status.setProblems(1, "Компилятор вернул ошибку без diagnostics");
-      return;
+      return { count: 1, runtimeError: false };
     }
 
     const merged = mergeDiagnostics(document, items);
@@ -1443,6 +1439,7 @@ async function validateDocument(document, client, diagnostics, output, status) {
     if (status && vscode.window.activeTextEditor && vscode.window.activeTextEditor.document.uri.toString() === document.uri.toString()) {
       status.setProblems(merged.length, merged.length === 0 ? "Схема проверена компилятором RPL" : `Проблем в схеме: ${merged.length}`);
     }
+    return { count: merged.length, runtimeError: false };
   } catch (error) {
     const message = String(error && error.message ? error.message : error);
     output.appendLine(message);
@@ -1452,6 +1449,7 @@ async function validateDocument(document, client, diagnostics, output, status) {
       `${message}\nПроверь настройку rpl.binaryPath и команду \`rpl runtime\`.`
     )]);
     if (status) status.setError(message);
+    return { count: 1, runtimeError: true };
   }
 }
 
