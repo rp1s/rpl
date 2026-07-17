@@ -6,7 +6,7 @@ attrs (
 
 // One business interface, several generated adapters.
 @transport(os.bin)
-@transport(http)
+@transport(http, httpPath: "/api/users", brokerPrefix: "acme.users", kafkaGroup: "acme-users-rpc")
 @transport(unix)
 @transport(nats)
 @transport(kafka)

@@ -2,7 +2,7 @@
 <attr>
   <name>sql</name>
   <author>rpl</author>
-  <version>1.1.0</version>
+  <version>1.2.0</version>
   <displayName>SQL Attr</displayName>
   <description>Generates safe PostgreSQL/SQLite schemas, typed columns, stores, and query helpers</description>
   <entry>attr</entry>

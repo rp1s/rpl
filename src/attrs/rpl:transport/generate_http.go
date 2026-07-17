@@ -84,7 +84,7 @@ func (handler *%s) ServeHTTP(writer http.ResponseWriter, request *http.Request) 
 	}
 	_ = json.NewEncoder(writer).Encode(response)
 }`,
-		basePathName, "/rpl/"+sdk.SnakeCase(plan.Model.Name),
+		basePathName, plan.HTTPBasePath,
 		normalizeName, basePathName,
 		handlerName, plan.ServiceName, handlerName, plan.ServiceName,
 		handlerName, plan.ServiceName, handlerName, handlerName, basePathName,

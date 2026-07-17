@@ -62,7 +62,7 @@ func generateSQL(req sdk.GenerateRequest) (sdk.GenerateResponse, error) {
 	schemaBuilder.AddOrderedBlock("sql.column.names", generateSQLColumnNamesVar(prefix, fields), 20)
 	schemaBuilder.AddOrderedBlock("sql.search.columns", generateSQLSearchColumnsVar(prefix, fields), 30)
 	schemaBuilder.AddOrderedBlock("sql.select.statement", generateSQLSelectStatementConst(prefix, tableName, fields), 40)
-	schemaBuilder.AddOrderedBlock("sql.order.by", generateSQLOrderByConst(prefix, fields), 50)
+	schemaBuilder.AddOrderedBlock("sql.order.by", generateSQLOrderByConst(prefix, fields, modelValues["orderBy"].String()), 50)
 	schemaBuilder.AddOrderedBlock("sql.create.statements", generateSQLCreateStatementsVar(prefix, tableName, fields), 60)
 	schemaBuilder.AddOrderedBlock("sql.insert.statement", generateSQLInsertStatementConst(prefix, tableName, fields), 70)
 	schemaBuilder.AddOrderedBlock("sql.update.columns", generateSQLUpdateColumnIndexesVar(prefix, fields), 75)
@@ -211,6 +211,9 @@ func collectSQLFields(req sdk.GenerateRequest, dialect sqlDialect) []sqlFieldMet
 			meta.Default = sqlDefaultLiteral(value, field)
 		}
 		meta.Indexed = values["index"].BoolValue()
+		if _, configured := values["search"]; configured {
+			meta.Searchable = values["search"].BoolValue()
+		}
 		meta.PrimaryKey = values["primaryKey"].BoolValue()
 		meta.Unique = values["unique"].BoolValue()
 		meta.UpdatedAt = values["updatedAt"].BoolValue()

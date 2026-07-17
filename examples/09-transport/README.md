@@ -22,3 +22,17 @@ only explicitly annotated methods are generated.
 HTTP paths are customizable with `NewModelHTTPHandlerAt` and
 `NewModelHTTPClientAt`. NATS, Kafka, and WebSocket use small generated
 interfaces so applications can choose their preferred client libraries.
+
+Model-level routing defaults can also live in the schema:
+
+```rpl
+@transport(http,
+    httpPath: "/api/users",
+    brokerPrefix: "acme.users",
+    kafkaGroup: "acme-users-rpc",
+)
+```
+
+These values become the generated HTTP base path, NATS/Kafka subject or topic
+prefix, and Kafka consumer group. Constructor parameters still allow an
+application to override them at runtime.

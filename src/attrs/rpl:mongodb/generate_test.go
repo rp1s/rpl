@@ -22,3 +22,21 @@ func TestGenerateMongoIndexesHelpersProducesValidGo(t *testing.T) {
 		t.Fatalf("last index entry has no trailing comma:\n%s", generated)
 	}
 }
+
+func TestGenerateMongoIndexesHelpersBuildsCompoundIndexes(t *testing.T) {
+	fields := []mongoFieldMeta{
+		{BSONName: "tenant_id", IndexGroup: "tenant_created", IndexOrder: 1, Unique: true},
+		{BSONName: "created_at", IndexGroup: "tenant_created", IndexOrder: -1},
+	}
+
+	generated := generateMongoIndexesHelpers("eventMongo", "events", fields)
+	for _, want := range []string{
+		`bson.D{{Key: "tenant_id", Value: 1}, {Key: "created_at", Value: -1}}`,
+		`SetName("events_tenant_created_idx")`,
+		`.SetUnique(true)`,
+	} {
+		if !strings.Contains(generated, want) {
+			t.Fatalf("compound indexes do not contain %q:\n%s", want, generated)
+		}
+	}
+}

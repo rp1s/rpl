@@ -25,7 +25,7 @@ attrs (
 )
 
 @transport(os.bin)
-@transport(http)
+@transport(http, httpPath: "/api/users", brokerPrefix: "acme.users", kafkaGroup: "acme-users-rpc")
 @transport(unix)
 @transport(nats)
 @transport(kafka)
@@ -49,6 +49,15 @@ business implementation remains the source of truth.
 
 Repeated modes are deduplicated. `websocket` also accepts `ws` as an alias.
 Omitting a mode keeps backward-compatible `os.bin` behavior.
+
+Model-level settings can declare generated routing defaults:
+
+- `httpPath`: HTTP base path, beginning with `/`;
+- `brokerPrefix`: NATS subject and Kafka topic prefix;
+- `kafkaGroup`: Kafka server consumer group.
+
+They may be placed on any model-level `@transport(...)` declaration. Repeated
+transport modes still share one resolved configuration.
 
 ## Generated Files
 
@@ -133,7 +142,8 @@ client, err := transport.NewUserHTTPClient("http://127.0.0.1:8080", nil)
 saved, err := client.Put(ctx, user.User{Id: 7, Name: "Ada"})
 ```
 
-The default path is `/rpl/<snake_model>/<Method>`. Requests and responses are
+The default path is `<httpPath>/<Method>`, where `httpPath` defaults to
+`/rpl/<snake_model>`. Requests and responses are
 limited to 8 MiB by the generated handler/client. Applications should add auth,
 timeouts, CORS policy, rate limits, tracing, and domain error/status mapping in
 normal HTTP middleware.
@@ -184,7 +194,7 @@ client, err := transport.NewUserNATSClient(broker, "company.users")
 ```
 
 Subjects have the form `<prefix>.<lower_method>`. The default prefix is
-`rpl.<lower_model>`. A `nats.go` bridge is responsible for subscription
+`brokerPrefix`, which defaults to `rpl.<lower_model>`. A `nats.go` bridge is responsible for subscription
 draining, request deadlines, reconnect behavior, and mapping message replies to
 the callback result.
 

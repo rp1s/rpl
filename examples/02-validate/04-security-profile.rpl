@@ -9,8 +9,9 @@ attrs (
 )
 
 model SecurityProfile {
-    Login string @validate(minLen: 3, maxLen: 40)
-    Email string @validate(email: true, maxLen: 160)
+    ID string @validate(required: true, uuid: true)
+    Login string @validate(required: true, minLen: 3, maxLen: 40, pattern: "^[a-z][a-z0-9_]{2,39}$")
+    Email string @validate(required: true, email: true, maxLen: 160)
     RecoveryPhone string? @validate(phone: true)
     Password string @validate(minLen: 12, maxLen: 128, hash: "argon2id")
     CallbackURL string? @validate(url: true, maxLen: 512)

@@ -24,7 +24,7 @@ func renderNATSTransport(plan *transportPlan, mode transportModePlan) string {
 	brokerName := plan.Model.Name + "NATSBroker"
 	serverName := plan.Model.Name + "NATSServer"
 	clientName := plan.Model.Name + "NATSClient"
-	defaultPrefix := "rpl." + strings.ToLower(plan.Model.Name)
+	defaultPrefix := plan.BrokerPrefix
 	methodNames := quotedTransportMethodNames(mode.Methods)
 	var builder strings.Builder
 	builder.WriteString(fmt.Sprintf(`// %s is the small request/reply surface required from a NATS adapter.
@@ -162,8 +162,8 @@ func renderKafkaTransport(plan *transportPlan, mode transportModePlan) string {
 	brokerName := plan.Model.Name + "KafkaBroker"
 	serverName := plan.Model.Name + "KafkaServer"
 	clientName := plan.Model.Name + "KafkaClient"
-	defaultPrefix := "rpl." + strings.ToLower(plan.Model.Name)
-	defaultGroup := "rpl-" + strings.ToLower(plan.Model.Name)
+	defaultPrefix := plan.BrokerPrefix
+	defaultGroup := plan.KafkaGroup
 	methodNames := quotedTransportMethodNames(mode.Methods)
 	var builder strings.Builder
 	builder.WriteString(fmt.Sprintf(`// %s owns Kafka correlation IDs, reply topics, and consumer lifecycle.

@@ -11,7 +11,14 @@ import (
 func (p *Parser) parseExpr() (ast.Expr, *Err.Error) {
 	tok := p.current()
 
-	if tok.Text == "true" || tok.Text == "false" {
+	if tok.Type == token.SYMBOL && (tok.Text == "-" || tok.Text == "+") && p.peek(1).Type == token.NUMBER {
+		p.advance()
+		number := p.current()
+		p.advance()
+		return ast.NumberExpr{Position: tok.Position, Value: tok.Text + number.Text}, nil
+	}
+
+	if tok.Type == token.IDENT && (tok.Text == "true" || tok.Text == "false") {
 		p.advance()
 		return ast.BoolExpr{Position: tok.Position, Value: tok.Text == "true"}, nil
 	}

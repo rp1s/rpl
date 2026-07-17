@@ -19,6 +19,7 @@ func generateValidate(req sdk.GenerateRequest) sdk.GenerateResponse {
 	needsMail := false
 	needsURL := false
 	needsRegexp := false
+	needsStrings := false
 	needsTime := false
 	needsSHA := false
 	needsHex := false
@@ -34,6 +35,7 @@ func generateValidate(req sdk.GenerateRequest) sdk.GenerateResponse {
 		needsMail = needsMail || flags["net/mail"]
 		needsURL = needsURL || flags["net/url"]
 		needsRegexp = needsRegexp || flags["regexp"]
+		needsStrings = needsStrings || flags["strings"]
 		needsTime = needsTime || flags["time"]
 
 		hashCode, hashFlags := hashCodeForField(field, hashGuardName)
@@ -64,6 +66,9 @@ func generateValidate(req sdk.GenerateRequest) sdk.GenerateResponse {
 	if needsRegexp {
 		builder.AddImport("regexp")
 		builder.AddOrderedBlock("validate.phone.pattern", fmt.Sprintf("var %s = regexp.MustCompile(%q)", phonePatternName, `^\+?[0-9][0-9\s\-()]{4,}$`), 0)
+	}
+	if needsStrings {
+		builder.AddImport("strings")
 	}
 	if needsTime {
 		builder.AddImport("time")
@@ -151,6 +156,13 @@ func validationCodeForField(field sdk.Field, phonePatternName string) ([]string,
 	flags := map[string]bool{}
 	fieldExpr := "model." + field.Name
 	values := field.ResolvedValues("validate")
+	if values["required"].BoolValue() {
+		flags["fmt"] = true
+		if field.Type.IsString() {
+			flags["strings"] = true
+		}
+		lines = append(lines, requiredValidation(field, fieldExpr))
+	}
 
 	if min := strings.TrimSpace(values["min"].String()); min != "" {
 		flags["fmt"] = true
@@ -183,6 +195,16 @@ func validationCodeForField(field sdk.Field, phonePatternName string) ([]string,
 		flags["regexp"] = true
 		lines = append(lines, guardField(field, phoneValidation(field, fieldExpr, phonePatternName)))
 	}
+	if values["uuid"].BoolValue() {
+		flags["fmt"] = true
+		flags["regexp"] = true
+		lines = append(lines, guardField(field, patternValidation(field, fieldExpr, `^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$`, "must be uuid")))
+	}
+	if pattern := strings.TrimSpace(values["pattern"].String()); pattern != "" {
+		flags["fmt"] = true
+		flags["regexp"] = true
+		lines = append(lines, guardField(field, patternValidation(field, fieldExpr, pattern, "has invalid format")))
+	}
 	if values["past"].BoolValue() {
 		flags["fmt"] = true
 		flags["time"] = true
@@ -194,6 +216,33 @@ func validationCodeForField(field sdk.Field, phonePatternName string) ([]string,
 	}
 
 	return lines, flags
+}
+
+func requiredValidation(field sdk.Field, fieldExpr string) string {
+	message := field.Name + " is required"
+	switch {
+	case field.Type.Optional && field.Type.IsString():
+		return fmt.Sprintf("if %s == nil || strings.TrimSpace(*%s) == \"\" {\n\t\terrs = append(errs, fmt.Errorf(%q))\n\t}", fieldExpr, fieldExpr, message)
+	case field.Type.Optional && field.Type.IsTime():
+		return fmt.Sprintf("if %s == nil || %s.IsZero() {\n\t\terrs = append(errs, fmt.Errorf(%q))\n\t}", fieldExpr, fieldExpr, message)
+	case field.Type.Optional:
+		return fmt.Sprintf("if %s == nil {\n\t\terrs = append(errs, fmt.Errorf(%q))\n\t}", fieldExpr, message)
+	case field.Type.IsString():
+		return fmt.Sprintf("if strings.TrimSpace(%s) == \"\" {\n\t\terrs = append(errs, fmt.Errorf(%q))\n\t}", fieldExpr, message)
+	case field.Type.IsList:
+		return fmt.Sprintf("if len(%s) == 0 {\n\t\terrs = append(errs, fmt.Errorf(%q))\n\t}", fieldExpr, message)
+	case field.Type.IsTime():
+		return fmt.Sprintf("if %s.IsZero() {\n\t\terrs = append(errs, fmt.Errorf(%q))\n\t}", fieldExpr, message)
+	default:
+		return ""
+	}
+}
+
+func patternValidation(field sdk.Field, fieldExpr string, pattern string, message string) string {
+	if field.Type.IsList {
+		return fmt.Sprintf("for _, item := range %s {\n\t\tmatched, _ := regexp.MatchString(%q, item)\n\t\tif !matched {\n\t\t\terrs = append(errs, fmt.Errorf(%q))\n\t\t}\n\t}", fieldExpr, pattern, field.Name+" "+message)
+	}
+	return fmt.Sprintf("if matched, _ := regexp.MatchString(%q, %s); !matched {\n\t\terrs = append(errs, fmt.Errorf(%q))\n\t}", pattern, accessField(field, fieldExpr), field.Name+" "+message)
 }
 
 func hashCodeForField(field sdk.Field, hashGuardName string) (string, map[string]bool) {

@@ -2,9 +2,12 @@ package main
 
 import (
 	"fmt"
+	"regexp"
 	"rpl/pkg/sdk"
 	"strings"
 )
+
+var mongoIndexGroupPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]*$`)
 
 var mongodbModelSpec = sdk.AttrSpec{
 	Namespace: "mongodb",
@@ -24,12 +27,14 @@ var mongodbModelSpec = sdk.AttrSpec{
 var mongodbFieldSpec = sdk.AttrSpec{
 	Namespace: "mongodb",
 	Help: sdk.Text(
-		"На уровне поля mongodb понимает name, index, unique, sparse, search, sort, objectId, omitempty, default, updatedAt и ignore.",
-		"At field level mongodb understands name, index, unique, sparse, search, sort, objectId, omitempty, default, updatedAt, and ignore.",
+		"На уровне поля mongodb понимает name, index, indexGroup, indexOrder, unique, sparse, search, sort, objectId, omitempty, default, updatedAt и ignore.",
+		"At field level mongodb understands name, index, indexGroup, indexOrder, unique, sparse, search, sort, objectId, omitempty, default, updatedAt, and ignore.",
 	),
 	Args: []sdk.AttrArgSpec{
 		{Name: "name", Types: []sdk.AttrValueType{sdk.AttrValueTypeStringLike}},
 		{Name: "index", Types: []sdk.AttrValueType{sdk.AttrValueTypeBool}},
+		{Name: "indexGroup", Types: []sdk.AttrValueType{sdk.AttrValueTypeStringLike}},
+		{Name: "indexOrder", Types: []sdk.AttrValueType{sdk.AttrValueTypeNumber}},
 		{Name: "unique", Types: []sdk.AttrValueType{sdk.AttrValueTypeBool}},
 		{Name: "sparse", Types: []sdk.AttrValueType{sdk.AttrValueTypeBool}},
 		{Name: "search", Types: []sdk.AttrValueType{sdk.AttrValueTypeBool}},
@@ -101,6 +106,38 @@ func validateMongoDBDatabase(builder *sdk.AnalyzeBuilder, attr sdk.Attr, values 
 func analyzeMongoDBField(builder *sdk.AnalyzeBuilder, field sdk.Field) {
 	resolved := builder.ValidateAttrSpec(field.RuntimeAttrs, mongodbFieldSpec)
 	values := resolved.ValueMap()
+	group := strings.TrimSpace(values["indexGroup"].String())
+	if group != "" && !mongoIndexGroupPattern.MatchString(group) {
+		builder.AddDiagnostic(sdk.DiagnosticAt(
+			fieldRuntimeAttr(field, "mongodb"),
+			fmt.Sprintf(sdk.Text("некорректная MongoDB indexGroup %q", "invalid MongoDB indexGroup %q"), group),
+			sdk.Text("Используйте буквы, цифры, `_` или `-`.", "Use letters, digits, `_`, or `-`."),
+		))
+	}
+	if order, ok := values["indexOrder"]; ok {
+		parsed, err := order.Int64()
+		if err != nil || (parsed != 1 && parsed != -1) {
+			builder.AddDiagnostic(sdk.DiagnosticAt(
+				fieldRuntimeAttr(field, "mongodb"),
+				fmt.Sprintf(sdk.Text("mongodb indexOrder у поля %q должен быть 1 или -1", "mongodb indexOrder on field %q must be 1 or -1"), field.Name),
+				sdk.Text("Используйте `indexOrder: 1` для ascending или `indexOrder: -1` для descending.", "Use `indexOrder: 1` for ascending or `indexOrder: -1` for descending."),
+			))
+		}
+		if group == "" {
+			builder.AddDiagnostic(sdk.DiagnosticAt(
+				fieldRuntimeAttr(field, "mongodb"),
+				fmt.Sprintf(sdk.Text("mongodb indexOrder у поля %q задан без indexGroup", "mongodb indexOrder on field %q requires indexGroup"), field.Name),
+				sdk.Text("Добавьте `indexGroup: \"...\"` или уберите `indexOrder`.", "Add `indexGroup: \"...\"` or remove `indexOrder`."),
+			))
+		}
+	}
+	if group != "" && values["index"].BoolValue() {
+		builder.AddDiagnostic(sdk.DiagnosticAt(
+			fieldRuntimeAttr(field, "mongodb"),
+			fmt.Sprintf(sdk.Text("поле %q одновременно задаёт index и indexGroup", "field %q configures both index and indexGroup"), field.Name),
+			sdk.Text("Используйте `index` для одиночного индекса или `indexGroup` для составного.", "Use `index` for a single-field index or `indexGroup` for a compound index."),
+		))
+	}
 
 	if values["objectId"].BoolValue() && !field.Type.IsString() {
 		builder.AddDiagnostic(sdk.DiagnosticAt(

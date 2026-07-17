@@ -432,12 +432,12 @@ See [`examples/06-multifile`](examples/06-multifile) and
 | Runtime | Version | Main responsibility |
 | --- | ---: | --- |
 | `rpl:std` | 1.0.0 | comments, groups, and cross-generator ignore metadata |
-| `rpl:validate` | 1.0.0 | field validation and sensitive/hash helpers |
-| `rpl:sql` | 1.1.0 | PostgreSQL/SQLite DDL, scans, CRUD, typed queries, stores |
-| `rpl:mongodb` | 1.0.0 | BSON adapters, indexes, search/sort metadata, CRUD helpers |
-| `rpl:redis` | 1.0.0 | Redis keys, hash storage, uniqueness, defaults, TTL |
+| `rpl:validate` | 1.1.0 | field validation, UUID/regexp rules, and sensitive/hash helpers |
+| `rpl:sql` | 1.2.0 | PostgreSQL/SQLite DDL, scans, CRUD, typed queries, stores |
+| `rpl:mongodb` | 1.1.0 | BSON adapters, compound indexes, search/sort metadata, CRUD helpers |
+| `rpl:redis` | 1.1.0 | Redis keys, hash storage, custom names, typed defaults, TTL |
 | `rpl:grpc` | 1.0.0 | `.proto`, protobuf Go, gRPC services, clients, conversions |
-| `rpl:transport` | 2.0.0 | shared service contracts with os.bin, HTTP, Unix, NATS, Kafka, and WebSocket adapters |
+| `rpl:transport` | 2.1.0 | shared service contracts, routing defaults, and six delivery adapters |
 
 ### `rpl:std`
 
@@ -453,11 +453,14 @@ Field validation arguments:
 
 | Argument | Purpose |
 | --- | --- |
+| `required` | reject empty strings/collections, absent optionals, and zero timestamps |
 | `min`, `max` | numeric or comparable range constraints |
 | `minLen`, `maxLen` | string/collection length constraints |
 | `email` | email format validation |
 | `phone` | phone format validation |
 | `url` | URL validation |
+| `uuid` | canonical UUID validation for strings and string lists |
+| `pattern` | custom regular expression, checked during schema analysis |
 | `past` | require a timestamp in the past |
 | `hash` | mark a sensitive value and generate hash-oriented helpers |
 
@@ -465,8 +468,9 @@ Example:
 
 ```rpl
 model Signup {
-    Name string @validate(min: 2, max: 32)
-    Email string @validate(email)
+    ID string @validate(required: true, uuid: true)
+    Name string @validate(required: true, min: 2, max: 32, pattern: "^[A-Za-z ]+$")
+    Email string @validate(required: true, email: true)
     Password string @validate(minLen: 8, maxLen: 128, hash: "password")
 }
 ```
@@ -476,11 +480,12 @@ model Signup {
 Model arguments:
 
 - `db`: `postgres` (default) or `sqlite`;
-- `table`: explicit table name.
+- `table`: explicit table name;
+- `orderBy`: generated default order, by field or SQL column name.
 
 Field arguments:
 
-- `column`, `primaryKey`, `unique`, `index`;
+- `column`, `primaryKey`, `unique`, `index`, `search`;
 - `default`, `updatedAt`, `ignore`.
 
 The generator validates and quotes identifiers, supports composite primary
@@ -508,8 +513,10 @@ a destructive migration engine. More details are in
 
 Model arguments: `db`, `collection`.
 
-Field arguments: `name`, `index`, `unique`, `sparse`, `search`, `sort`,
-`objectId`, `omitempty`, `default`, `updatedAt`, and `ignore`.
+Field arguments: `name`, `index`, `indexGroup`, `indexOrder`, `unique`,
+`sparse`, `search`, `sort`, `objectId`, `omitempty`, `default`, `updatedAt`,
+and `ignore`. Fields sharing an `indexGroup` form one compound index;
+`indexOrder` is `1` or `-1`.
 
 The output includes collection constants, index definitions, BSON conversion,
 metadata, CRUD/query helpers, search filters, sort fields, ObjectID handling,
@@ -519,10 +526,12 @@ and update timestamp behavior.
 
 Model arguments: `db`, `table`, `ttl`.
 
-Field arguments: `unique`, `default`, `ignore`.
+Field arguments: `name`, `unique`, `default`, `ignore`.
 
 The generator produces model key conventions, hash serialization helpers,
 unique-key metadata, defaults, and expiration-aware storage helpers.
+Defaults are type-checked and applied when a Redis hash key is absent. `name`
+provides a stable stored hash name independent of the RPL field name.
 
 ### `rpl:grpc`
 
@@ -547,7 +556,7 @@ Transport 2 generates one service contract with any combination of:
 
 ```rpl
 @transport(os.bin)
-@transport(http)
+@transport(http, httpPath: "/api/users", brokerPrefix: "acme.users", kafkaGroup: "acme-users-rpc")
 @transport(unix)
 @transport(nats)
 @transport(kafka)
@@ -569,6 +578,9 @@ HTTP uses `net/http`; Unix uses domain sockets. NATS, Kafka, and WebSocket expos
 small integration interfaces so applications can choose and version their own
 client libraries. Kafka's bridge explicitly owns correlation IDs and reply
 topics because Kafka is not inherently request/reply.
+
+`httpPath`, `brokerPrefix`, and `kafkaGroup` move deployment routing defaults
+into the schema while generated constructors still permit runtime overrides.
 
 Identity and model-bound semantics continue to use `@transport.id()` and
 `@transport.Model()`. Omitting a mode remains equivalent to `os.bin`.

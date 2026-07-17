@@ -17,8 +17,8 @@ model RateLimitWindow {
 model TenantToken {
     TenantID string @redis(unique: true)
     TokenID string @redis(unique: true)
-    Active bool @redis(default: "TRUE")
-    Attempts int @redis(default: "0")
+    Active bool @redis(name: "is_active", default: "true")
+    Attempts int @redis(name: "attempt_count", default: "0")
     Score float64 @redis(default: "0")
     ExpiresAt time.Time
     Scopes []string

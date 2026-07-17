@@ -76,3 +76,30 @@ func TestSQLQuotedIdentifierEscapesQuotes(t *testing.T) {
 		t.Fatalf("sqlQuotedIdentifier() = %q, want %q", got, want)
 	}
 }
+
+func TestOrderByUsesConfiguredFieldOrColumn(t *testing.T) {
+	fields := []sqlFieldMeta{
+		{Field: "ID", Column: "id", PrimaryKey: true},
+		{Field: "CreatedAt", Column: "created_at"},
+	}
+	for _, configured := range []string{"CreatedAt", "created_at"} {
+		generated := generateSQLOrderByConst("eventSQL", fields, configured)
+		if !strings.Contains(generated, `\"created_at\"`) {
+			t.Fatalf("configured orderBy %q was ignored: %s", configured, generated)
+		}
+	}
+}
+
+func TestSearchColumnsUseExplicitSelection(t *testing.T) {
+	fields := []sqlFieldMeta{
+		{Field: "Title", Column: "title", Searchable: true},
+		{Field: "InternalLabel", Column: "internal_label", Searchable: false},
+	}
+	generated := generateSQLSearchColumnsVar("articleSQL", fields)
+	if !strings.Contains(generated, `\"title\"`) {
+		t.Fatalf("searchable column is absent: %s", generated)
+	}
+	if strings.Contains(generated, "internal_label") {
+		t.Fatalf("excluded search column was generated: %s", generated)
+	}
+}

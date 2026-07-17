@@ -2,7 +2,7 @@
 <attr>
   <name>validate</name>
   <author>rpl</author>
-  <version>1.0.0</version>
+  <version>1.1.0</version>
   <displayName>Validate Attr</displayName>
   <description>Generates validation and sensitive-field helpers</description>
   <entry>attr</entry>

@@ -11,11 +11,12 @@ model DeliveryAddress {
     PostalCode string
 }
 
-@sql(db: "sqlite", table: "orders")
+@sql(db: "sqlite", table: "orders", orderBy: "customer_id")
 model Order {
     ID int @sql(primaryKey: true)
     CustomerID int @sql(column: "customer_id", index: true)
-    State string @sql(default: "new", index: true)
+    State string @sql(default: "new", index: true, search: true)
+    InternalLabel string @sql(search: false)
     Labels []string
     Address DeliveryAddress
     Discount float64? @sql(default: "0")

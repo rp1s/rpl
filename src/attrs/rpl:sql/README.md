@@ -6,11 +6,12 @@ and a small Go-style `Store` for every model.
 ## Schema
 
 ```rpl
-@sql(db: "postgres", table: "users")
+@sql(db: "postgres", table: "users", orderBy: "created_at")
 model User {
     Id int @sql(column: "id", primaryKey: true)
     Email string @sql(unique: true, index: true)
-    Name string @sql(index: true)
+    Name string @sql(index: true, search: true)
+    InternalLabel string @sql(search: false)
     CreatedAt time.Time @sql(default: "now")
     UpdatedAt time.Time @sql(default: "now", updatedAt: true)
     Internal string @sql(ignore: true)
@@ -20,7 +21,9 @@ model User {
 Model arguments:
 
 - `db`: `postgres` (default) or `sqlite`;
-- `table`: explicit table name; defaults to the snake_case model name.
+- `table`: explicit table name; defaults to the snake_case model name;
+- `orderBy`: default ordering field or SQL column; primary key remains the
+  fallback when omitted.
 
 Field arguments:
 
@@ -28,6 +31,8 @@ Field arguments:
 - `primaryKey`: marks a primary-key field; several fields form a composite key;
 - `unique`: creates a standalone unique constraint;
 - `index`: creates a non-unique index when the field is not already a key;
+- `search`: explicitly includes or excludes a string field from generated
+  text-search columns;
 - `default`: SQL default (`now` becomes `CURRENT_TIMESTAMP` for `time.Time`);
 - `updatedAt`: refreshes a `time.Time` value during `Update` and `Upsert`;
 - `ignore`: excludes the field from SQL storage.

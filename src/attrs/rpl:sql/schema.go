@@ -77,9 +77,21 @@ func generateSQLSelectStatementConst(prefix string, tableName string, fields []s
 	return fmt.Sprintf("const %sSelectStatement = %q", prefix, fmt.Sprintf("SELECT %s FROM %s", strings.Join(columns, ", "), sqlQuotedIdentifier(tableName)))
 }
 
-func generateSQLOrderByConst(prefix string, fields []sqlFieldMeta) string {
+func generateSQLOrderByConst(prefix string, fields []sqlFieldMeta, configured ...string) string {
 	orderBy := ""
+	if len(configured) > 0 {
+		requested := strings.TrimSpace(configured[0])
+		for _, field := range fields {
+			if strings.EqualFold(requested, field.Field) || strings.EqualFold(requested, field.Column) {
+				orderBy = sqlQuotedIdentifier(field.Column)
+				break
+			}
+		}
+	}
 	for _, field := range fields {
+		if orderBy != "" {
+			break
+		}
 		if field.PrimaryKey {
 			orderBy = sqlQuotedIdentifier(field.Column)
 			break

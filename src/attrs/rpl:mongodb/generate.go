@@ -8,19 +8,21 @@ import (
 )
 
 type mongoFieldMeta struct {
-	FieldName string
-	Type      sdk.TypeRef
-	BSONName  string
-	Index     bool
-	Unique    bool
-	Sparse    bool
-	Search    bool
-	Sort      bool
-	ObjectID  bool
-	OmitEmpty bool
-	Default   string
-	UpdatedAt bool
-	IsIDLike  bool
+	FieldName  string
+	Type       sdk.TypeRef
+	BSONName   string
+	Index      bool
+	IndexGroup string
+	IndexOrder int
+	Unique     bool
+	Sparse     bool
+	Search     bool
+	Sort       bool
+	ObjectID   bool
+	OmitEmpty  bool
+	Default    string
+	UpdatedAt  bool
+	IsIDLike   bool
 }
 
 func generateMongoDB(req sdk.GenerateRequest) (sdk.GenerateResponse, error) {
@@ -123,19 +125,21 @@ func collectMongoFields(req sdk.GenerateRequest) []mongoFieldMeta {
 		}
 
 		fields = append(fields, mongoFieldMeta{
-			FieldName: field.Name,
-			Type:      field.Type,
-			BSONName:  bsonName,
-			Index:     values["index"].BoolValue(),
-			Unique:    values["unique"].BoolValue(),
-			Sparse:    values["sparse"].BoolValue(),
-			Search:    values["search"].BoolValue(),
-			Sort:      values["sort"].BoolValue(),
-			ObjectID:  values["objectId"].BoolValue(),
-			OmitEmpty: values["omitempty"].BoolValue(),
-			Default:   strings.TrimSpace(values["default"].String()),
-			UpdatedAt: values["updatedAt"].BoolValue(),
-			IsIDLike:  strings.EqualFold(field.Name, "id") || strings.HasSuffix(strings.ToLower(field.Name), "id"),
+			FieldName:  field.Name,
+			Type:       field.Type,
+			BSONName:   bsonName,
+			Index:      values["index"].BoolValue(),
+			IndexGroup: strings.TrimSpace(values["indexGroup"].String()),
+			IndexOrder: mongoIndexOrder(values["indexOrder"]),
+			Unique:     values["unique"].BoolValue(),
+			Sparse:     values["sparse"].BoolValue(),
+			Search:     values["search"].BoolValue(),
+			Sort:       values["sort"].BoolValue(),
+			ObjectID:   values["objectId"].BoolValue(),
+			OmitEmpty:  values["omitempty"].BoolValue(),
+			Default:    strings.TrimSpace(values["default"].String()),
+			UpdatedAt:  values["updatedAt"].BoolValue(),
+			IsIDLike:   strings.EqualFold(field.Name, "id") || strings.HasSuffix(strings.ToLower(field.Name), "id"),
 		})
 	}
 
@@ -155,6 +159,14 @@ func collectMongoFields(req sdk.GenerateRequest) []mongoFieldMeta {
 	}
 
 	return fields
+}
+
+func mongoIndexOrder(value sdk.Value) int {
+	order, err := value.Int64()
+	if err == nil && order == -1 {
+		return -1
+	}
+	return 1
 }
 
 func addMongoSchemaImports(builder *sdk.CodeBuilder) {
@@ -294,7 +306,27 @@ func generateMongoCollectionHelpers(prefix string) string {
 
 func generateMongoIndexesHelpers(prefix string, collectionName string, fields []mongoFieldMeta) string {
 	indexLines := make([]string, 0)
+	type compoundIndex struct {
+		name   string
+		keys   []string
+		unique bool
+		sparse bool
+	}
+	compound := make([]compoundIndex, 0)
+	compoundIndexes := make(map[string]int)
 	for _, field := range fields {
+		if field.IndexGroup != "" {
+			index, ok := compoundIndexes[field.IndexGroup]
+			if !ok {
+				index = len(compound)
+				compoundIndexes[field.IndexGroup] = index
+				compound = append(compound, compoundIndex{name: field.IndexGroup})
+			}
+			compound[index].keys = append(compound[index].keys, fmt.Sprintf("{Key: %q, Value: %d}", field.BSONName, field.IndexOrder))
+			compound[index].unique = compound[index].unique || field.Unique
+			compound[index].sparse = compound[index].sparse || field.Sparse
+			continue
+		}
 		if !field.Index && !field.Unique {
 			continue
 		}
@@ -307,6 +339,16 @@ func generateMongoIndexesHelpers(prefix string, collectionName string, fields []
 			optionsExpr += ".SetSparse(true)"
 		}
 		indexLines = append(indexLines, fmt.Sprintf("{Keys: bson.D{{Key: %q, Value: 1}}, Options: %s}", field.BSONName, optionsExpr))
+	}
+	for _, index := range compound {
+		optionsExpr := fmt.Sprintf("options.Index().SetName(%q)", collectionName+"_"+index.name+"_idx")
+		if index.unique {
+			optionsExpr += ".SetUnique(true)"
+		}
+		if index.sparse {
+			optionsExpr += ".SetSparse(true)"
+		}
+		indexLines = append(indexLines, fmt.Sprintf("{Keys: bson.D{%s}, Options: %s}", strings.Join(index.keys, ", "), optionsExpr))
 	}
 
 	searchFields := mongoSearchFields(fields)

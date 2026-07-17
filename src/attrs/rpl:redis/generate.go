@@ -148,6 +148,14 @@ func generateRedisApplyMethod(modelName string, fields []sdk.Field) sdk.Generate
 	needsTime := false
 
 	for _, field := range fields {
+		defaultCode, defaultImports := redisDefaultCode(field)
+		if defaultCode != "" {
+			lines = append(lines, defaultCode)
+		}
+		needsJSON = needsJSON || defaultImports["encoding/json"]
+		needsFmt = needsFmt || defaultImports["fmt"]
+		needsStrconv = needsStrconv || defaultImports["strconv"]
+		needsTime = needsTime || defaultImports["time"]
 		code, imports := redisApplyFieldCode(field)
 		lines = append(lines, code)
 		needsJSON = needsJSON || imports["encoding/json"]
@@ -194,7 +202,7 @@ func redisKeyPartCode(field sdk.Field) string {
 
 func redisHashFieldCode(field sdk.Field) (string, map[string]bool) {
 	imports := map[string]bool{}
-	column := sdk.SnakeCase(field.Name)
+	column := redisHashName(field)
 	fieldExpr := "model." + field.Name
 
 	switch {
@@ -244,7 +252,7 @@ func redisOptionalHashCode(field sdk.Field, column string) string {
 
 func redisApplyFieldCode(field sdk.Field) (string, map[string]bool) {
 	imports := map[string]bool{}
-	column := sdk.SnakeCase(field.Name)
+	column := redisHashName(field)
 
 	switch {
 	case field.Type.IsList || (!field.Type.IsScalar() && !field.Type.Optional):
@@ -280,6 +288,79 @@ func redisApplyFieldCode(field sdk.Field) (string, map[string]bool) {
 		imports["fmt"] = true
 		return fmt.Sprintf("if raw, ok := values[%q]; ok {\n\t\tif err := json.Unmarshal([]byte(raw), &model.%s); err != nil {\n\t\t\treturn fmt.Errorf(\"decode redis field %s: %%w\", err)\n\t\t}\n\t}", column, field.Name, column), imports
 	}
+}
+
+func redisDefaultCode(field sdk.Field) (string, map[string]bool) {
+	imports := map[string]bool{}
+	resolved, ok := field.ResolvedAttr("redis")
+	if !ok {
+		return "", imports
+	}
+	value, ok := resolved.Value("default")
+	if !ok {
+		return "", imports
+	}
+	raw := strings.TrimSpace(value.String())
+	if raw == "" {
+		return "", imports
+	}
+
+	column := redisHashName(field)
+	target := "model." + field.Name
+	assignment := ""
+	switch {
+	case field.Type.IsList || (!field.Type.IsScalar() && !field.Type.Optional):
+		imports["encoding/json"] = true
+		imports["fmt"] = true
+		assignment = fmt.Sprintf("if err := json.Unmarshal([]byte(%q), &%s); err != nil { return fmt.Errorf(\"decode default for redis field %s: %%w\", err) }", raw, target, column)
+	case field.Type.IsString():
+		assignment = fmt.Sprintf("%s = %q", target, raw)
+	case field.Type.IsBool():
+		parsed, _ := strconv.ParseBool(raw)
+		assignment = fmt.Sprintf("%s = %t", target, parsed)
+	case field.Type.IsInteger():
+		assignment = fmt.Sprintf("%s = %s(%s)", target, field.Type.BaseName(), raw)
+	case field.Type.IsFloat():
+		assignment = fmt.Sprintf("%s = %s(%s)", target, field.Type.BaseName(), raw)
+	case field.Type.IsTime() && strings.EqualFold(raw, "now"):
+		imports["time"] = true
+		assignment = fmt.Sprintf("%s = time.Now()", target)
+	case field.Type.IsTime():
+		imports["fmt"] = true
+		imports["time"] = true
+		assignment = fmt.Sprintf("parsed, err := time.Parse(time.RFC3339, %q)\n\t\tif err != nil { return fmt.Errorf(\"parse default for redis field %s: %%w\", err) }\n\t\t%s = parsed", raw, column, target)
+	default:
+		imports["encoding/json"] = true
+		imports["fmt"] = true
+		assignment = fmt.Sprintf("if err := json.Unmarshal([]byte(%q), &%s); err != nil { return fmt.Errorf(\"decode default for redis field %s: %%w\", err) }", raw, target, column)
+	}
+
+	if field.Type.Optional && !field.Type.IsList {
+		base := field.Type
+		base.Optional = false
+		switch {
+		case field.Type.IsString():
+			assignment = fmt.Sprintf("value := %q\n\t\t%s = &value", raw, target)
+		case field.Type.IsBool():
+			parsed, _ := strconv.ParseBool(raw)
+			assignment = fmt.Sprintf("value := %t\n\t\t%s = &value", parsed, target)
+		case field.Type.IsInteger(), field.Type.IsFloat():
+			assignment = fmt.Sprintf("value := %s(%s)\n\t\t%s = &value", base.BaseName(), raw, target)
+		case field.Type.IsTime() && strings.EqualFold(raw, "now"):
+			imports["time"] = true
+			assignment = fmt.Sprintf("value := time.Now()\n\t\t%s = &value", target)
+		case field.Type.IsTime():
+			imports["fmt"] = true
+			imports["time"] = true
+			assignment = fmt.Sprintf("value, err := time.Parse(time.RFC3339, %q)\n\t\tif err != nil { return fmt.Errorf(\"parse default for redis field %s: %%w\", err) }\n\t\t%s = &value", raw, column, target)
+		default:
+			imports["encoding/json"] = true
+			imports["fmt"] = true
+			assignment = fmt.Sprintf("var value %s\n\t\tif err := json.Unmarshal([]byte(%q), &value); err != nil { return fmt.Errorf(\"decode default for redis field %s: %%w\", err) }\n\t\t%s = &value", base.GoString(), raw, column, target)
+		}
+	}
+
+	return fmt.Sprintf("if _, ok := values[%q]; !ok {\n\t\t%s\n\t}", column, assignment), imports
 }
 
 func redisOptionalApplyCode(field sdk.Field, column string) (string, map[string]bool) {

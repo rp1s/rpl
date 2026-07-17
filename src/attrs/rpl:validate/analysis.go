@@ -2,14 +2,16 @@ package main
 
 import (
 	"fmt"
+	"regexp"
 	"rpl/pkg/sdk"
 	"strings"
 )
 
 var validateFieldSpec = sdk.AttrSpec{
 	Namespace: "validate",
-	Help:      sdk.Text("Разрешены: min, max, minLen, maxLen, email, phone, url, past, hash.", "Allowed args are: min, max, minLen, maxLen, email, phone, url, past, hash."),
+	Help:      sdk.Text("Разрешены: required, min, max, minLen, maxLen, email, phone, url, uuid, pattern, past, hash.", "Allowed args are: required, min, max, minLen, maxLen, email, phone, url, uuid, pattern, past, hash."),
 	Args: []sdk.AttrArgSpec{
+		{Name: "required", Types: []sdk.AttrValueType{sdk.AttrValueTypeBool}},
 		{Name: "min", Types: []sdk.AttrValueType{sdk.AttrValueTypeNumber}},
 		{Name: "max", Types: []sdk.AttrValueType{sdk.AttrValueTypeNumber}},
 		{Name: "minLen", Types: []sdk.AttrValueType{sdk.AttrValueTypeNumber}},
@@ -17,6 +19,8 @@ var validateFieldSpec = sdk.AttrSpec{
 		{Name: "email", Types: []sdk.AttrValueType{sdk.AttrValueTypeBool}},
 		{Name: "phone", Types: []sdk.AttrValueType{sdk.AttrValueTypeBool}},
 		{Name: "url", Types: []sdk.AttrValueType{sdk.AttrValueTypeBool}},
+		{Name: "uuid", Types: []sdk.AttrValueType{sdk.AttrValueTypeBool}},
+		{Name: "pattern", Types: []sdk.AttrValueType{sdk.AttrValueTypeStringLike}},
 		{Name: "past", Types: []sdk.AttrValueType{sdk.AttrValueTypeBool}},
 		{Name: "hash", Types: []sdk.AttrValueType{sdk.AttrValueTypeStringLike}},
 	},
@@ -78,6 +82,9 @@ func analyzeValidateField(builder *sdk.AnalyzeBuilder, field sdk.Field) {
 
 	resolved := builder.ValidateAttrSpec(field.RuntimeAttrs, validateFieldSpec)
 	values := resolved.ValueMap()
+	if values["required"].BoolValue() && !validateSupportsRequired(field.Type) {
+		builder.AddDiagnostic(sdk.IncompatibleAttrType(fieldRuntimeAttr(field, "validate"), "validate", "required", field.Type, sdk.Text("Используйте optional-тип, строку, список или time.Time.", "Use an optional type, string, list, or time.Time.")))
+	}
 
 	if min, ok := values["min"]; ok {
 		if !field.Type.IsString() && !field.Type.IsNumeric() {
@@ -128,6 +135,20 @@ func analyzeValidateField(builder *sdk.AnalyzeBuilder, field sdk.Field) {
 	if values["url"].BoolValue() && !validateSupportsString(field.Type) {
 		builder.AddDiagnostic(sdk.IncompatibleAttrType(fieldRuntimeAttr(field, "validate"), "validate", "url", field.Type, ""))
 	}
+	if values["uuid"].BoolValue() && !validateSupportsString(field.Type) {
+		builder.AddDiagnostic(sdk.IncompatibleAttrType(fieldRuntimeAttr(field, "validate"), "validate", "uuid", field.Type, ""))
+	}
+	if pattern, ok := values["pattern"]; ok {
+		if !validateSupportsString(field.Type) {
+			builder.AddDiagnostic(sdk.IncompatibleAttrType(fieldRuntimeAttr(field, "validate"), "validate", "pattern", field.Type, ""))
+		} else if _, err := regexp.Compile(pattern.String()); err != nil {
+			builder.AddDiagnostic(sdk.DiagnosticAt(
+				fieldRuntimeAttr(field, "validate"),
+				fmt.Sprintf(sdk.Text("validate pattern у поля %q не компилируется: %v", "validate pattern on field %q does not compile: %v"), field.Name, err),
+				sdk.Text("Исправьте регулярное выражение в `pattern`.", "Fix the regular expression in `pattern`."),
+			))
+		}
+	}
 	if values["past"].BoolValue() && !field.Type.IsTime() {
 		builder.AddDiagnostic(sdk.DiagnosticAt(
 			fieldRuntimeAttr(field, "validate"),
@@ -158,4 +179,8 @@ func validateSupportsLen(typeRef sdk.TypeRef) bool {
 
 func validateSupportsString(typeRef sdk.TypeRef) bool {
 	return typeRef.IsString() || (typeRef.IsList && typeRef.BaseName() == "string")
+}
+
+func validateSupportsRequired(typeRef sdk.TypeRef) bool {
+	return typeRef.Optional || typeRef.IsString() || typeRef.IsList || typeRef.IsTime()
 }

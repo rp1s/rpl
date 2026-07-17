@@ -23,7 +23,7 @@ attrs (
 )
 
 @transport(os.bin)
-@transport(http)
+@transport(http, httpPath: "/api/users", brokerPrefix: "acme.users", kafkaGroup: "acme-users-rpc")
 @transport(unix)
 @transport(nats)
 @transport(kafka)
@@ -64,9 +64,12 @@ model User {
 
 	assertFileContains(t, filepath.Join(transportDir, "transport.gen.go"), "type UserTransportService interface")
 	assertFileContains(t, filepath.Join(transportDir, "http.gen.go"), "type UserHTTPHandler struct")
+	assertFileContains(t, filepath.Join(transportDir, "http.gen.go"), `const UserHTTPDefaultBasePath = "/api/users"`)
 	assertFileContains(t, filepath.Join(transportDir, "unix.gen.go"), "func ListenUserUnix")
 	assertFileContains(t, filepath.Join(transportDir, "nats.gen.go"), "type UserNATSBroker interface")
+	assertFileContains(t, filepath.Join(transportDir, "nats.gen.go"), `prefix = "acme.users"`)
 	assertFileContains(t, filepath.Join(transportDir, "kafka.gen.go"), "type UserKafkaBroker interface")
+	assertFileContains(t, filepath.Join(transportDir, "kafka.gen.go"), `group = "acme-users-rpc"`)
 	assertFileContains(t, filepath.Join(transportDir, "websocket.gen.go"), "type UserWebSocketConn interface")
 	assertFileContains(t, filepath.Join(transportDir, "http.gen.go"), "func (client *UserHTTPClient) HTTPOnly")
 	assertFileNotContains(t, filepath.Join(transportDir, "http.gen.go"), "func (client *UserHTTPClient) Event")
@@ -115,7 +118,7 @@ func TestHTTPRoundTrip(t *testing.T) {
     if got.Id != 7 || got.Name != "Ada" { t.Fatalf("unexpected user: %#v", got) }
     label, err := client.HTTPOnly(context.Background())
     if err != nil || label != "http" { t.Fatalf("HTTPOnly = %q, %v", label, err) }
-    blocked, err := http.Post(server.URL+"/rpl/user/Event", "application/json", strings.NewReader(` + "`{}`" + `))
+    blocked, err := http.Post(server.URL+"/api/users/Event", "application/json", strings.NewReader(` + "`{}`" + `))
     if err != nil { t.Fatal(err) }
     defer blocked.Body.Close()
     if blocked.StatusCode != http.StatusInternalServerError {

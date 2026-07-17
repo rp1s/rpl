@@ -9,11 +9,16 @@ filters, scans, CRUD functions, upsert logic, and a `Store` facade.
 | `02-sql-ignore-and-defaults.rpl` | defaults and two forms of SQL exclusion |
 | `03-sqlite-storage.rpl` | SQLite plus list and nested-model JSON columns |
 | `04-composite-primary-key.rpl` | three-column primary key, custom names, typed defaults |
-| `05-json-and-custom-columns.rpl` | custom columns, optional values, list/model JSON encoding |
+| `05-json-and-custom-columns.rpl` | custom columns, default ordering, search controls, JSON encoding |
 
 Several `primaryKey: true` fields form a composite conflict target for upsert.
 When no primary key exists, the first unique field is used. Lists and nested
 models are stored as JSON text while scalar fields retain native SQL types.
+
+`orderBy` selects the generated default ordering column by RPL field name or
+SQL column name. String fields are searchable by default; `search: true` or
+`search: false` makes their inclusion in generated text-search helpers
+explicit.
 
 Generated consumers can use either functions or the facade:
 

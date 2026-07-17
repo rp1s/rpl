@@ -42,6 +42,9 @@ type transportPlan struct {
 	ResponseName    string
 	Methods         []transportMethodPlan
 	Modes           []transportModePlan
+	HTTPBasePath    string
+	BrokerPrefix    string
+	KafkaGroup      string
 }
 
 type transportModePlan struct {
@@ -92,6 +95,9 @@ func buildTransportPlan(req sdk.GenerateRequest) (*transportPlan, error) {
 		ResponseName:    sdk.LowerCamel(req.Model.Name) + "TransportResponse",
 		Methods:         make([]transportMethodPlan, 0),
 		Modes:           make([]transportModePlan, 0),
+		HTTPBasePath:    transportModelSetting(req.Model, "httpPath", "/rpl/"+sdk.SnakeCase(req.Model.Name)),
+		BrokerPrefix:    transportModelSetting(req.Model, "brokerPrefix", "rpl."+strings.ToLower(req.Model.Name)),
+		KafkaGroup:      transportModelSetting(req.Model, "kafkaGroup", "rpl-"+strings.ToLower(req.Model.Name)),
 	}
 	modeIndexes := make(map[string]int)
 	methodIndexes := make(map[string]int)
@@ -142,6 +148,19 @@ func buildTransportPlan(req sdk.GenerateRequest) (*transportPlan, error) {
 	}
 
 	return plan, nil
+}
+
+func transportModelSetting(model sdk.Model, name string, fallback string) string {
+	attrs := append(append([]sdk.Attr(nil), model.RuntimeAttrs...), model.Attrs...)
+	for _, attr := range attrs {
+		if !attr.Matches("transport") && attr.Namespace() != "transport" {
+			continue
+		}
+		if value, ok := attr.Named(name); ok && strings.TrimSpace(value.String()) != "" {
+			return strings.TrimSpace(value.String())
+		}
+	}
+	return fallback
 }
 
 func transportModelImportPath(file sdk.FileContext) string {

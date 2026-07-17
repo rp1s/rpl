@@ -12,10 +12,11 @@ var sqlIdentifierPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 var sqlModelSpec = sdk.AttrSpec{
 	Namespace: "sql",
-	Help:      sdk.Text("На уровне модели sql настраивает диалект и имя таблицы.", "At model level sql configures the dialect and table name."),
+	Help:      sdk.Text("На уровне модели sql настраивает диалект, таблицу и сортировку.", "At model level sql configures the dialect, table, and default ordering."),
 	Args: []sdk.AttrArgSpec{
 		{Name: "db", Types: []sdk.AttrValueType{sdk.AttrValueTypeStringLike}},
 		{Name: "table", Types: []sdk.AttrValueType{sdk.AttrValueTypeStringLike}},
+		{Name: "orderBy", Types: []sdk.AttrValueType{sdk.AttrValueTypeStringLike}},
 	},
 	Snippets: []sdk.AttrSnippetSpec{
 		{Label: "@sql", Insert: "@sql", Help: sdk.Text("Базовый SQL-атрибут.", "Base SQL attr.")},
@@ -24,11 +25,12 @@ var sqlModelSpec = sdk.AttrSpec{
 
 var sqlFieldSpec = sdk.AttrSpec{
 	Namespace: "sql",
-	Help:      sdk.Text("На уровне поля sql настраивает имя колонки, ключи, default, индексы, updatedAt и ignore.", "At field level sql configures the column name, keys, default, indexes, updatedAt, and ignore."),
+	Help:      sdk.Text("На уровне поля sql настраивает колонку, ключи, поиск, default, индексы, updatedAt и ignore.", "At field level sql configures the column, keys, search, default, indexes, updatedAt, and ignore."),
 	Args: []sdk.AttrArgSpec{
 		{Name: "column", Types: []sdk.AttrValueType{sdk.AttrValueTypeStringLike}},
 		{Name: "default", Types: []sdk.AttrValueType{sdk.AttrValueTypeStringLike}},
 		{Name: "index", Types: []sdk.AttrValueType{sdk.AttrValueTypeBool}},
+		{Name: "search", Types: []sdk.AttrValueType{sdk.AttrValueTypeBool}},
 		{Name: "primaryKey", Types: []sdk.AttrValueType{sdk.AttrValueTypeBool}},
 		{Name: "unique", Types: []sdk.AttrValueType{sdk.AttrValueTypeBool}},
 		{Name: "updatedAt", Types: []sdk.AttrValueType{sdk.AttrValueTypeBool}},
@@ -46,6 +48,7 @@ func analyzeSQL(req sdk.GenerateRequest) (sdk.AnalyzeResponse, error) {
 	modelValues := modelResolved.ValueMap()
 	validateSQLDialect(builder, modelRuntimeAttr(req.Model, "sql"), modelValues)
 	validateSQLIdentifier(builder, modelRuntimeAttr(req.Model, "sql"), "table", modelValues["table"].String())
+	validateSQLOrderBy(builder, modelRuntimeAttr(req.Model, "sql"), req.Model, req.File, modelValues["orderBy"].String())
 
 	columns := make(map[string]string)
 	for _, field := range req.Model.Fields {
@@ -85,6 +88,26 @@ func analyzeSQL(req sdk.GenerateRequest) (sdk.AnalyzeResponse, error) {
 	return builder.Response(), nil
 }
 
+func validateSQLOrderBy(builder *sdk.AnalyzeBuilder, attr sdk.Attr, model sdk.Model, file sdk.FileContext, raw string) {
+	value := strings.TrimSpace(raw)
+	if builder == nil || value == "" {
+		return
+	}
+	for _, field := range model.Fields {
+		if field.IgnoredBy("sql") || field.Type.IsExternal(file) {
+			continue
+		}
+		if strings.EqualFold(value, field.Name) || strings.EqualFold(value, resolvedSQLColumnName(field)) {
+			return
+		}
+	}
+	builder.AddDiagnostic(sdk.DiagnosticAt(
+		attr,
+		fmt.Sprintf(sdk.Text("sql orderBy %q не соответствует полю модели %q", "sql orderBy %q does not match a field on model %q"), value, model.Name),
+		sdk.Text("Укажите имя поля RPL или имя SQL-колонки.", "Use an RPL field name or SQL column name."),
+	))
+}
+
 func validateSQLDialect(builder *sdk.AnalyzeBuilder, attr sdk.Attr, values map[string]sdk.Value) {
 	if builder == nil {
 		return
@@ -114,6 +137,15 @@ func analyzeSQLField(builder *sdk.AnalyzeBuilder, field sdk.Field) {
 
 	validateSQLIdentifier(builder, attr, "column", values["column"].String())
 	validateSQLDefault(builder, attr, field, values["default"].String())
+	if value, configured := values["search"]; configured && value.BoolValue() && (!field.Type.IsString() || field.Type.IsList) {
+		builder.AddDiagnostic(sdk.IncompatibleAttrType(
+			attr,
+			"sql",
+			"search",
+			field.Type,
+			sdk.Text("Используйте search только для строковых полей.", "Use search only with string fields."),
+		))
+	}
 
 	if values["primaryKey"].BoolValue() && field.Type.Optional {
 		builder.AddDiagnostic(sdk.DiagnosticAt(

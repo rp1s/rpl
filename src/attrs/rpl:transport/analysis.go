@@ -14,6 +14,9 @@ var transportModelSpec = sdk.AttrSpec{
 		{Name: "mode", Positional: true, Types: []sdk.AttrValueType{sdk.AttrValueTypeStringLike}, Help: localize.Text("Режим: os.bin, http, unix, nats, kafka или websocket.", "Mode: os.bin, http, unix, nats, kafka, or websocket.")},
 		{Name: "subject", Types: []sdk.AttrValueType{sdk.AttrValueTypeStringLike}},
 		{Name: "model", Types: []sdk.AttrValueType{sdk.AttrValueTypeBool}, Aliases: []string{"Model"}},
+		{Name: "httpPath", Types: []sdk.AttrValueType{sdk.AttrValueTypeStringLike}},
+		{Name: "brokerPrefix", Types: []sdk.AttrValueType{sdk.AttrValueTypeStringLike}},
+		{Name: "kafkaGroup", Types: []sdk.AttrValueType{sdk.AttrValueTypeStringLike}},
 	},
 	Snippets: []sdk.AttrSnippetSpec{
 		{Label: "@transport(os.bin)", Insert: "@transport(os.bin)", Help: localize.Text("Включает stdin/stdout transport для модели.", "Enables stdin/stdout transport for the model.")},
@@ -85,6 +88,28 @@ func validateTransportAttrs(builder *sdk.AnalyzeBuilder, attrs []sdk.Attr, spec 
 			validateTransportMode(builder, attr, modeValue(resolved))
 		}
 		validateTransportSubject(builder, attr, resolved.ValueMap())
+		validateTransportRouting(builder, attr, resolved.ValueMap())
+	}
+}
+
+func validateTransportRouting(builder *sdk.AnalyzeBuilder, attr sdk.Attr, values map[string]sdk.Value) {
+	if builder == nil {
+		return
+	}
+	if path := strings.TrimSpace(values["httpPath"].String()); path != "" && !strings.HasPrefix(path, "/") {
+		builder.AddDiagnostic(sdk.DiagnosticAt(attr,
+			fmt.Sprintf(localize.Text("transport httpPath должен начинаться с `/`, а не %q", "transport httpPath must start with `/`, not %q"), path),
+			localize.Text("Например: `httpPath: \"/api/users\"`.", "For example: `httpPath: \"/api/users\"`."),
+		))
+	}
+	for name, label := range map[string]string{"brokerPrefix": "brokerPrefix", "kafkaGroup": "kafkaGroup"} {
+		value := strings.TrimSpace(values[name].String())
+		if value != "" && strings.ContainsAny(value, " \t\r\n") {
+			builder.AddDiagnostic(sdk.DiagnosticAt(attr,
+				fmt.Sprintf(localize.Text("transport %s не должен содержать пробелы", "transport %s must not contain whitespace"), label),
+				"",
+			))
+		}
 	}
 }
 
