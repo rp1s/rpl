@@ -1,0 +1,20 @@
+target(lang: golang)
+
+attrs (
+    "rpl:std"
+    "rpl:validate"
+)
+
+@comment("One source model produces request, patch, and public DTOs.")
+model Account {
+    ID int @group("public")
+    Email string @group("create") @group("patch") @validate(email: true, maxLen: 160)
+    DisplayName string @group("create") @group("patch") @group("public") @validate(minLen: 2, maxLen: 80)
+    Password string @group("create") @validate(minLen: 12, maxLen: 128, hash: "password")
+    Bio string? @group("patch") @group("public") @validate(maxLen: 500)
+}
+
+model AccountCommand {
+    Create AccountCreate
+    Patch AccountPatch
+}

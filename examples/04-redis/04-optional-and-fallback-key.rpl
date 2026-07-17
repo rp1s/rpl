@@ -1,0 +1,27 @@
+target(lang: golang)
+
+import (
+    "time"
+)
+
+attrs (
+    "rpl:redis"
+    "rpl:std"
+)
+
+model ViewerPreferences {
+    Theme string
+    Muted bool
+}
+
+// With no explicit unique field, UserID becomes the generated key component.
+@redis(db: "cache", table: "viewer_presence", ttl: 45)
+model ViewerPresence {
+    UserID int
+    RoomID string
+    Alias string?
+    LastSeen time.Time
+    Roles []string
+    Preferences ViewerPreferences
+    SocketHandle string @ignore("redis")
+}

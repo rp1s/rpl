@@ -1,0 +1,17 @@
+target(lang: golang)
+
+attrs (
+    "rpl:transport"
+)
+
+// No model-level transport means no generated CRUD endpoints. Only annotated
+// business methods are exposed, but they still share one service interface.
+model Operations {
+    ID string @transport.id()
+    Region string
+
+    func Readiness return (string) @transport(http)
+    func Invalidate (key string) return (bool) @transport(nats)
+    func Publish (topic string, payload string) return (string) @transport(kafka)
+    func Tail (channel string) return (string) @transport(websocket)
+}

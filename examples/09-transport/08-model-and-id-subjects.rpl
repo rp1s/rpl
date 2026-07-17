@@ -1,0 +1,22 @@
+target(lang: golang)
+
+attrs (
+    "rpl:transport"
+)
+
+@transport(http)
+@transport(websocket)
+model Device {
+    ID string @transport.id()
+    Name string
+    Firmware string
+
+    // The service receives device ID before the explicit version argument.
+    func Upgrade (version string) return (string) @transport.Model() @transport(subject: "id")
+
+    // The service receives the complete Device model.
+    func Describe return (string) @transport.Model() @transport(subject: "model")
+
+    // WebSocket-only streaming-oriented operation.
+    func Observe return (string) @transport(websocket) @transport.Model()
+}

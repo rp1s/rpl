@@ -1,0 +1,23 @@
+target(lang: golang)
+
+import (
+    "time"
+)
+
+attrs (
+    "rpl:sql"
+)
+
+@sql(db: "postgres", table: "invoice_lines")
+model InvoiceLine {
+    TenantID string @sql(column: "tenant_id", primaryKey: true)
+    InvoiceNumber int @sql(column: "invoice_number", primaryKey: true)
+    LineNumber int @sql(column: "line_number", primaryKey: true)
+    ExternalRef string @sql(column: "external_ref", unique: true, index: true)
+    Description string
+    Quantity int @sql(default: "1")
+    UnitPrice float64 @sql(default: "0")
+    Archived bool @sql(default: "FALSE", index: true)
+    CreatedAt time.Time @sql(default: "now")
+    UpdatedAt time.Time @sql(default: "now", updatedAt: true)
+}

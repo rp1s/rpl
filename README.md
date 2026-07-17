@@ -857,15 +857,15 @@ Extension source and additional documentation live in
 | Directory | Topic |
 | --- | --- |
 | `00-syntax` | models, defaults, imports, model methods, field methods |
-| `01-std` | comments, groups, derived models, ignore rules |
-| `02-validate` | ranges, lengths, email, phone, URL, past time, hashes |
-| `03-sql` | PostgreSQL, SQLite, keys, indexes, defaults, stores |
-| `04-redis` | cache models, TTL, uniqueness, ignored fields |
-| `05-grpc` | classic, model-bound, ID-bound, and inside methods |
+| `01-std` | comments, multi-group DTO projections, selective ignore rules |
+| `02-validate` | scalar/list/optional rules, email, phone, URL, past time, hashes |
+| `03-sql` | PostgreSQL/SQLite, composite keys, JSON fields, defaults, stores |
+| `04-redis` | explicit/composite/fallback keys, TTL, complete hash codecs |
+| `05-grpc` | nested messages plus classic, model/ID-bound, inside, ignored methods |
 | `06-multifile` | one package split across RPL files |
 | `07-imports` | importing another RPL schema |
-| `08-mongodb` | collections, BSON, indexes, search, sort, CRUD |
-| `09-transport` | os.bin, HTTP, Unix socket, NATS, Kafka, WebSocket, and multi-adapter routing |
+| `08-mongodb` | ObjectID/BSON conversion, sparse indexes, search/sort, CRUD/watch |
+| `09-transport` | six adapters, multi-routing, subjects, method-only services |
 | `99-showcase` | end-to-end combinations of built-in attrs |
 | `projects` | standalone Go modules with app code, commands, and tests |
 
@@ -884,12 +884,16 @@ For realistic application structure, start with the
 | --- | --- | --- |
 | `account-service` | SQL store, SQLite schema, validation, metadata | validation-first account service and executor test double |
 | `session-cache` | Redis key/hash codec, ignored fields, validation | cache entry boundary and round-trip tests |
-| `process-service` | stdin/stdout server and child-process client | concurrency-safe user service and protocol test |
+| `process-service` | os.bin, HTTP, Unix, NATS, Kafka, WebSocket adapters | concurrency-safe user service and protocol tests |
 | `grpc-service` | protobuf, gRPC client/server adapters, validation | in-memory domain service and TCP server |
 
 Each project contains its own `.rpl/config.xml`, `go.mod`, `cmd/`, `internal/`,
 README, and tests. Generated files are excluded so CI proves they can always be
 recreated from the schema.
+
+The seven plugin cookbook folders contain 36 focused schemas. Every folder has
+a feature-matrix README, and the compiler test suite regenerates every schema
+in isolation so examples cannot silently become stale.
 
 ## Repository architecture
 

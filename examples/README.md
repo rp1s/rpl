@@ -21,15 +21,15 @@ sense on specific transports.
 ## Folders
 
 - `00-syntax` - core language syntax without much runtime logic
-- `01-std` - `@comment`, `@group`, `@ignore`
-- `02-validate` - numeric, string, time, URL, phone, email, hash validation
-- `03-sql` - SQL storage examples, including SQLite
-- `04-redis` - Redis cache/storage examples
-- `05-grpc` - classic and model-bound gRPC styles
+- `01-std` - comments, reusable projections, command DTOs, selective ignores
+- `02-validate` - scalars, optional values, collections, URL/phone/email, hash policy
+- `03-sql` - PostgreSQL/SQLite, composite keys, JSON fields, defaults, custom columns
+- `04-redis` - simple/composite/fallback keys and scalar, optional, list, nested hash values
+- `05-grpc` - CRUD, nested messages, inside fields, classic/model/ID-bound methods
 - `06-multifile` - one package split into multiple `.rpl` files
 - `07-imports` - importing another `.rpl` file
-- `08-mongodb` - MongoDB collections, indexes, search, and CRUD helpers
-- `09-transport` - os.bin, HTTP, Unix socket, NATS, Kafka, WebSocket, and multi-adapter services
+- `08-mongodb` - ObjectID, sparse/unique indexes, BSON names, search/sort, CRUD/watch helpers
+- `09-transport` - six adapters, multi-adapter, subject binding, and method-only services
 - `99-showcase` - large end-to-end examples
 - `projects` - four complete applications that are regenerated and compiled in CI
 
@@ -39,11 +39,17 @@ sense on specific transports.
 | --- | --- |
 | Learn model and field syntax | `00-syntax/01-basic-model.rpl` |
 | Generate validation | `02-validate/01-string-and-number-validation.rpl` |
+| Validate lists and optional fields | `02-validate/03-collections-and-optional-values.rpl` |
 | Build a database repository | `03-sql/03-sqlite-storage.rpl` then `projects/account-service` |
+| Use a composite SQL key | `03-sql/04-composite-primary-key.rpl` |
 | Serialize cache values | `04-redis/01-session-cache.rpl` then `projects/session-cache` |
+| Build a composite Redis key | `04-redis/03-composite-cache-key.rpl` |
 | Expose gRPC | `05-grpc/01-basic-service.rpl` then `projects/grpc-service` |
+| Mix gRPC method subjects | `05-grpc/07-method-subject-overrides.rpl` |
+| Generate a MongoDB repository | `08-mongodb/02-sparse-profile-store.rpl` |
 | Split one package across files | `06-multifile/main.rpl` |
 | Build local process IPC | `09-transport/01-os-bin-service.rpl` then `projects/process-service` |
+| Expose only selected transport methods | `09-transport/09-method-only-adapters.rpl` |
 | Inspect most features together | `99-showcase/main.rpl` |
 
 ## Run An Example
@@ -80,10 +86,20 @@ Run the clean-room lifecycle for all full projects:
 make test-projects
 ```
 
+Generate all 36 focused plugin schemas and compile all four full projects:
+
+```bash
+make test-examples
+```
+
 The test copies each project to a temporary directory without `generated/`.
 That distinction matters: a checked-in generated fixture can hide a broken
 generator, while a clean-room project test proves schema, config, attrs, module
 imports, generated code, and handwritten consumers still agree.
+
+`TestFocusedAttrExamplesGenerate` separately copies and generates every `.rpl`
+file from the seven plugin cookbook folders. This keeps even the small examples
+executable instead of treating them as unchecked documentation snippets.
 
 ## Global Attr Setup for Examples
 
@@ -104,6 +120,8 @@ priority than the global one.
 
 - The examples prefer explicit attrs like `@grpc()` and `@sql(index: true)` so
   the syntax is easier to copy.
+- Every plugin folder has its own README with a feature matrix and notes about
+  the generated API.
 - SQL examples use `@sql(primaryKey: true)` for stable updates and upserts; the
   generated package also exposes typed columns, `Where`/`And`, and `NewStore`.
 - Some examples use standard library imports such as `time` or `net/http`.

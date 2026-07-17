@@ -1,0 +1,24 @@
+target(lang: golang)
+
+import (
+    "time"
+)
+
+attrs (
+    "rpl:mongodb"
+)
+
+@mongodb(db: "mongodb", collection: "catalog_products")
+model CatalogProduct {
+    ID string @mongodb(objectId: true)
+    SKU string @mongodb(name: "sku", index: true, unique: true)
+    Title string @mongodb(search: true, sort: true)
+    Description string @mongodb(search: true)
+    Category string @mongodb(index: true, search: true, sort: true)
+    Brand string? @mongodb(index: true, sparse: true, search: true, omitempty: true)
+    Tags []string @mongodb(search: true)
+    Price float64 @mongodb(sort: true)
+    Available bool @mongodb(index: true)
+    CreatedAt time.Time @mongodb(default: "now", sort: true)
+    UpdatedAt time.Time @mongodb(default: "now", updatedAt: true, sort: true)
+}

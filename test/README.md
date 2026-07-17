@@ -30,6 +30,18 @@ behavior.
 make test-projects
 ```
 
+To validate the complete examples cookbook, including all 36 focused plugin
+schemas and the four clean-room projects, run:
+
+```bash
+make test-examples
+```
+
+Focused schemas are discovered by
+`src/internal/service/compiler/focused_examples_test.go`. Each file is copied
+to an isolated directory, generated, and checked for the characteristic API of
+its plugin. The full applications continue through compilation and Go tests.
+
 The test table is in
 `src/internal/service/compiler/project_examples_test.go`. For every project it:
 

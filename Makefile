@@ -26,7 +26,7 @@ INSTALL_ATTRS_DIR := $(INSTALL_DIR)/.rpl/attrs
 INSTALL_SDK_DIR := $(INSTALL_DIR)/.rpl/sdk
 .DEFAULT_GOAL := install
 
-.PHONY: build build-all build-host build-target build-attrs-target build-sdk-target build-fingerprint-target install uninstall test test-attrs test-projects clean help plugin vscode-plugin install-host-attrs install-host-sdk
+.PHONY: build build-all build-host build-target build-attrs-target build-sdk-target build-fingerprint-target install uninstall test test-attrs test-examples test-projects clean help plugin vscode-plugin install-host-attrs install-host-sdk
 
 help:
 	@echo "Available targets:"
@@ -39,6 +39,7 @@ help:
 	@echo "  make uninstall"
 	@echo "  make test"
 	@echo "  make test-attrs     # test every built-in attr despite ':' in directory names"
+	@echo "  make test-examples  # generate every focused schema and compile every full example project"
 	@echo "  make test-projects  # generate and compile every full example project"
 	@echo "  make plugin          # npm install + vsce package for VS Code extension"
 	@echo "  make clean"
@@ -195,6 +196,9 @@ test-attrs:
 
 test-projects:
 	@GOCACHE="$(GOCACHE)" "$(GO)" -C "$(MODULE_DIR)" test ./internal/service/compiler -run '^TestProjectExamplesGenerateAndCompile$$' -count=1
+
+test-examples:
+	@GOCACHE="$(GOCACHE)" "$(GO)" -C "$(MODULE_DIR)" test ./internal/service/compiler -run '^(TestFocusedAttrExamplesGenerate|TestProjectExamplesGenerateAndCompile)$$' -count=1
 
 plugin: vscode-plugin
 

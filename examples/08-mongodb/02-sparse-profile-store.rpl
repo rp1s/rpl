@@ -1,0 +1,23 @@
+target(lang: golang)
+
+import (
+    "time"
+)
+
+attrs (
+    "rpl:mongodb"
+    "rpl:std"
+)
+
+@comment("Profiles with optional sparse indexes and custom BSON names.")
+@mongodb(db: "mongo", collection: "profiles")
+model Profile {
+    ID string @mongodb(objectId: true)
+    Email string? @mongodb(name: "email_address", index: true, unique: true, sparse: true, omitempty: true)
+    DisplayName string @mongodb(name: "display_name", search: true, sort: true)
+    Bio string? @mongodb(search: true, omitempty: true)
+    AvatarURL string? @mongodb(name: "avatar_url", omitempty: true)
+    CreatedAt time.Time @mongodb(default: "now", sort: true)
+    UpdatedAt time.Time @mongodb(default: "now", updatedAt: true, sort: true)
+    RuntimeCache string @ignore("mongodb")
+}

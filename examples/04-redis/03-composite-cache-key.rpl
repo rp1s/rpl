@@ -1,0 +1,26 @@
+target(lang: golang)
+
+import (
+    "time"
+)
+
+attrs (
+    "rpl:redis"
+)
+
+model RateLimitWindow {
+    Limit int
+    Remaining int
+}
+
+@redis(db: "cache", table: "tenant_tokens", ttl: 900)
+model TenantToken {
+    TenantID string @redis(unique: true)
+    TokenID string @redis(unique: true)
+    Active bool @redis(default: "TRUE")
+    Attempts int @redis(default: "0")
+    Score float64 @redis(default: "0")
+    ExpiresAt time.Time
+    Scopes []string
+    Window RateLimitWindow
+}

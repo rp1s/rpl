@@ -1,0 +1,20 @@
+target(lang: golang)
+
+attrs (
+    "rpl:std"
+)
+
+@comment("Customer data split into public and operational projections.")
+model Customer {
+    ID string @group("public") @group("ops")
+    DisplayName string @comment("Name visible to other users.") @group("public")
+    Email string @group("ops")
+    Locale string @group("public") @group("ops")
+    PasswordHash string @ignore("grpc", "transport")
+    DebugTrace string @ignore("sql", "redis", "mongodb", "grpc", "transport")
+}
+
+model CustomerView {
+    Public CustomerPublic
+    Operations CustomerOps
+}

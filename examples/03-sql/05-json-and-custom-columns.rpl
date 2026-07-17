@@ -1,0 +1,23 @@
+target(lang: golang)
+
+attrs (
+    "rpl:sql"
+    "rpl:std"
+)
+
+model DeliveryAddress {
+    City string
+    Street string
+    PostalCode string
+}
+
+@sql(db: "sqlite", table: "orders")
+model Order {
+    ID int @sql(primaryKey: true)
+    CustomerID int @sql(column: "customer_id", index: true)
+    State string @sql(default: "new", index: true)
+    Labels []string
+    Address DeliveryAddress
+    Discount float64? @sql(default: "0")
+    InternalCalculation string @ignore("sql")
+}

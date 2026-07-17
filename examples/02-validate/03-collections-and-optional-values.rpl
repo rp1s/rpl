@@ -1,0 +1,13 @@
+target(lang: golang)
+
+attrs (
+    "rpl:validate"
+)
+
+model CampaignAudience {
+    Name string @validate(minLen: 3, maxLen: 80)
+    Tags []string @validate(minLen: 1, maxLen: 12)
+    ContactEmails []string @validate(minLen: 1, maxLen: 20, email: true)
+    LandingPages []string @validate(maxLen: 8, url: true)
+    Note string? @validate(maxLen: 500)
+}

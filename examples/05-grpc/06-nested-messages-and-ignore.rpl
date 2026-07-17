@@ -1,0 +1,25 @@
+target(lang: golang)
+
+attrs (
+    "rpl:grpc"
+    "rpl:std"
+)
+
+model PostalAddress {
+    City string
+    Street string
+    PostalCode string
+}
+
+@grpc()
+model Customer {
+    ID int @grpc.id()
+    Name string
+    Address PostalAddress
+    PreviousAddresses []PostalAddress
+    Tags []string
+    PasswordHash string @ignore("grpc")
+
+    func SearchAddresses (query string, limit int) return (string)
+    func Stats return (int, string)
+}

@@ -1,0 +1,18 @@
+target(lang: golang)
+
+import (
+    "time"
+)
+
+attrs (
+    "rpl:validate"
+)
+
+model SecurityProfile {
+    Login string @validate(minLen: 3, maxLen: 40)
+    Email string @validate(email: true, maxLen: 160)
+    RecoveryPhone string? @validate(phone: true)
+    Password string @validate(minLen: 12, maxLen: 128, hash: "argon2id")
+    CallbackURL string? @validate(url: true, maxLen: 512)
+    BirthDate time.Time @validate(past: true)
+}
