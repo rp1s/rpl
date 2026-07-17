@@ -967,7 +967,7 @@ in isolation so examples cannot silently become stale.
 │   │   ├── rpl:grpc/
 │   │   ├── rpl:transport/
 │   │   └── rpl:ffi/
-│   ├── cmd/                     CLI and fingerprint tools
+│   ├── cmd/                     CLI entrypoint
 │   ├── internal/
 │   │   ├── cli/                 command implementations
 │   │   ├── config/              XML config discovery and defaults
@@ -978,7 +978,6 @@ in isolation so examples cannot silently become stale.
 │   │   └── service/             compiler/language/type services
 │   └── pkg/
 │       ├── error/               structured localized diagnostics
-│       ├── fingerprint/         optional private-build device identity
 │       └── sdk/                 public attr SDK
 └── test/app/                    generated-code integration fixture
 ```
@@ -1005,6 +1004,7 @@ make test-attrs
 make test-projects
 make build-host
 make build-all
+make release
 make plugin
 make clean
 ```
@@ -1058,26 +1058,20 @@ Default matrix:
 - `linux/arm64`, `linux/amd64`;
 - `windows/arm64`, `windows/amd64`.
 
-Each target contains the CLI and compiled sidecar attrs. The build also creates
-the standalone fingerprint inspection tool under `build/fingerprint/`.
+Each target contains the portable CLI, compiled sidecar attrs, and attr SDK.
 
 ## Release builds
 
-Public builds are portable and do not require a device fingerprint. Private
-device-locked builds remain available explicitly:
+Create the complete release bundle with:
 
 ```bash
-make build-host FINGERPRINT=<sha256-fingerprint>
+make release
 ```
 
-Internally this injects:
-
-```text
--ldflags "-X rpl/internal/version.Fingerprint=<value>"
-```
-
-When no value is supplied, RPL skips device inspection entirely. This is the
-correct mode for public GitHub releases and cross-platform packages.
+This builds the six OS/architecture targets, bundles every attr and the SDK,
+packages the VS Code extension, creates `.tar.gz`/`.zip` archives, and writes
+`checksums.txt` under `build/release/v<version>/`. All RPL binaries are portable
+across machines.
 
 Release assets include SHA-256 checksums. Verify them before installing:
 

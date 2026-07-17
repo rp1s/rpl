@@ -1,19 +1,18 @@
 APP_NAME := rpl
-FINGERPRINT_APP_NAME := fingerprint
 GO ?= go
 MODULE_DIR := src
 BUILD_DIR := build
 CMD_PATH := ./cmd
-FINGERPRINT_CMD_PATH := ./cmd/fingerprint
 GOCACHE ?= /tmp/rpl-go-build
-FINGERPRINT ?=
-RPL_LDFLAGS ?= $(if $(strip $(FINGERPRINT)),-X rpl/internal/version.Fingerprint=$(FINGERPRINT),)
 INSTALL_DIR ?= $(HOME)/.local/bin
 ATTR_SOURCE_DIR := $(MODULE_DIR)/attrs
 PROFILE ?= $(if $(wildcard $(HOME)/.zshrc),$(HOME)/.zshrc,$(if $(wildcard $(HOME)/.bashrc),$(HOME)/.bashrc,$(HOME)/.profile))
 PATH_EXPORT := export PATH="$(INSTALL_DIR):$$PATH"
 VSCODE_PLUGIN_DIR := editors/vscode/rpl
 TARGETS ?= darwin/arm64 darwin/amd64 linux/amd64 linux/arm64 windows/amd64 windows/arm64
+VERSION ?= $(shell sed -n 's/^var Version = "\([^"]*\)"/\1/p' $(MODULE_DIR)/internal/version/version.go)
+VSCODE_VERSION ?= $(shell node -p "require('./$(VSCODE_PLUGIN_DIR)/package.json').version")
+RELEASE_DIR ?= $(BUILD_DIR)/release/v$(VERSION)
 TEST_PACKAGES := ./cmd/... ./internal/... ./pkg/...
 HOST_GOOS ?= $(shell $(GO) -C $(MODULE_DIR) env GOOS)
 HOST_GOARCH ?= $(shell $(GO) -C $(MODULE_DIR) env GOARCH)
@@ -26,15 +25,15 @@ INSTALL_ATTRS_DIR := $(INSTALL_DIR)/.rpl/attrs
 INSTALL_SDK_DIR := $(INSTALL_DIR)/.rpl/sdk
 .DEFAULT_GOAL := install
 
-.PHONY: build build-all build-host build-target build-attrs-target build-sdk-target build-fingerprint-target install uninstall test test-attrs test-examples test-projects clean help plugin vscode-plugin install-host-attrs install-host-sdk
+.PHONY: build build-all build-host build-target build-attrs-target build-sdk-target release package-release install uninstall test test-attrs test-examples test-projects clean help plugin vscode-plugin install-host-attrs install-host-sdk
 
 help:
 	@echo "Available targets:"
 	@echo "  make                 # build host binary + bundled attrs + install both"
-	@echo "  make build           # clean + build all release targets with attrs + fingerprint into build/"
+	@echo "  make build           # clean + build all release targets with attrs into build/"
 	@echo "  make build-all"
-	@echo "  make build-host      # clean + build current platform with attrs + fingerprint into build/"
-	@echo "  make build-host FINGERPRINT=<hash>  # create an optional device-locked CLI build"
+	@echo "  make build-host      # clean + build current platform with attrs into build/"
+	@echo "  make release         # build archives, VSIX and SHA-256 checksums"
 	@echo "  make install"
 	@echo "  make uninstall"
 	@echo "  make test"
@@ -74,10 +73,9 @@ build-target:
 	out_dir="$(CURDIR)/$(BUILD_DIR)/$$goos-$$goarch"; \
 	mkdir -p "$$out_dir"; \
 	echo "Building $(APP_NAME) for $$goos/$$goarch"; \
-	GOCACHE="$(GOCACHE)" GOOS="$$goos" GOARCH="$$goarch" "$(GO)" -C "$(MODULE_DIR)" build $(if $(strip $(RPL_LDFLAGS)),-ldflags "$(RPL_LDFLAGS)",) -o "$$out_dir/$(APP_NAME)$$ext" "$(CMD_PATH)"; \
+	GOCACHE="$(GOCACHE)" GOOS="$$goos" GOARCH="$$goarch" "$(GO)" -C "$(MODULE_DIR)" build -o "$$out_dir/$(APP_NAME)$$ext" "$(CMD_PATH)"; \
 	"$(MAKE)" --no-print-directory build-attrs-target GOOS_TARGET="$$goos" GOARCH_TARGET="$$goarch" OUTPUT_ROOT="$$out_dir"; \
 	"$(MAKE)" --no-print-directory build-sdk-target OUTPUT_ROOT="$$out_dir"; \
-	"$(MAKE)" --no-print-directory build-fingerprint-target GOOS_TARGET="$$goos" GOARCH_TARGET="$$goarch"; \
 	echo "Built $$out_dir"
 
 build-attrs-target:
@@ -119,24 +117,8 @@ build-sdk-target:
 	mkdir -p "$$sdk_root/pkg"; \
 	printf 'module rpl\n\ngo 1.25.6\n' > "$$sdk_root/go.mod"; \
 	cp -R "$(MODULE_DIR)/pkg/sdk" "$$sdk_root/pkg/sdk"; \
+	find "$$sdk_root" -type f -name '*_test.go' -delete; \
 	echo "Bundled attr SDK in $$sdk_root"
-
-build-fingerprint-target:
-	@set -e; \
-	goos="$(GOOS_TARGET)"; \
-	goarch="$(GOARCH_TARGET)"; \
-	if [ -z "$$goos" ] || [ -z "$$goarch" ]; then \
-		echo "GOOS_TARGET and GOARCH_TARGET are required"; \
-		exit 1; \
-	fi; \
-	ext=""; \
-	if [ "$$goos" = "windows" ]; then \
-		ext=".exe"; \
-	fi; \
-	out_dir="$(CURDIR)/$(BUILD_DIR)/fingerprint/$$goos-$$goarch"; \
-	mkdir -p "$$out_dir"; \
-	echo "Building $(FINGERPRINT_APP_NAME) for $$goos/$$goarch -> $$out_dir"; \
-	GOCACHE="$(GOCACHE)" GOOS="$$goos" GOARCH="$$goarch" "$(GO)" -C "$(MODULE_DIR)" build -o "$$out_dir/$(FINGERPRINT_APP_NAME)$$ext" "$(FINGERPRINT_CMD_PATH)"
 
 install: build-host install-host-attrs install-host-sdk
 	@mkdir -p "$(INSTALL_DIR)"
@@ -204,8 +186,45 @@ plugin: vscode-plugin
 
 vscode-plugin:
 	@cd "$(VSCODE_PLUGIN_DIR)" && npm install
-	@cd "$(VSCODE_PLUGIN_DIR)" && npx @vscode/vsce package
+	@set -e; \
+	license="$(CURDIR)/$(VSCODE_PLUGIN_DIR)/LICENSE"; \
+	cp "$(CURDIR)/LICENSE" "$$license"; \
+	trap 'find "$$license" -type f -delete' EXIT; \
+	cd "$(VSCODE_PLUGIN_DIR)" && npx @vscode/vsce package
 	@echo "Packaged VS Code extension in $(VSCODE_PLUGIN_DIR)"
+
+release: build vscode-plugin package-release
+
+package-release:
+	@set -e; \
+	release_root="$(CURDIR)/$(RELEASE_DIR)"; \
+	staging_root="$(CURDIR)/$(BUILD_DIR)/release/staging"; \
+	rm -rf "$$release_root" "$$staging_root"; \
+	mkdir -p "$$release_root" "$$staging_root"; \
+	for target in $(TARGETS); do \
+		goos=$${target%/*}; \
+		goarch=$${target#*/}; \
+		package="rpl-v$(VERSION)-$$goos-$$goarch"; \
+		stage="$$staging_root/$$package"; \
+		mkdir -p "$$stage"; \
+		ext=""; \
+		if [ "$$goos" = "windows" ]; then ext=".exe"; fi; \
+		cp "$(CURDIR)/$(BUILD_DIR)/$$goos-$$goarch/$(APP_NAME)$$ext" "$$stage/$(APP_NAME)$$ext"; \
+		cp -R "$(CURDIR)/$(BUILD_DIR)/$$goos-$$goarch/.rpl" "$$stage/.rpl"; \
+		cp "$(CURDIR)/README.md" "$(CURDIR)/LICENSE" "$$stage/"; \
+		if [ "$$goos" = "windows" ]; then \
+			( cd "$$staging_root" && zip -qr "$$release_root/$$package.zip" "$$package" ); \
+		else \
+			tar -C "$$staging_root" -czf "$$release_root/$$package.tar.gz" "$$package"; \
+		fi; \
+	done; \
+	cp "$(CURDIR)/$(VSCODE_PLUGIN_DIR)/rpl-language-support-$(VSCODE_VERSION).vsix" "$$release_root/rpl-vscode-$(VSCODE_VERSION).vsix"; \
+	if command -v shasum >/dev/null 2>&1; then \
+		( cd "$$release_root" && shasum -a 256 rpl-* > checksums.txt ); \
+	else \
+		( cd "$$release_root" && sha256sum rpl-* > checksums.txt ); \
+	fi; \
+	echo "Release assets ready in $$release_root"
 
 clean:
 	@rm -rf "$(BUILD_DIR)"

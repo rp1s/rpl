@@ -3,8 +3,11 @@
 Thumbs.db
 .idea/
 .vscode/
+.fleet/
+.history/
 *.swp
 *.swo
+*~
 
 # Local environment
 .env
@@ -14,14 +17,24 @@ Thumbs.db
 # Go build and test artifacts
 /bin/
 /build/
+/dist/
+/release/
 *.test
 *.out
+*.prof
+*.cover
+*.cov
 coverage.txt
 coverage.html
+/coverage/
 /src/rpl
-/src/fingerprint
 /src/attrs/*/attr
 /src/attrs/*/attr.exe
+*.o
+*.a
+*.so
+*.dylib
+*.dll
 
 # RPL runtime and generated metadata
 generated/
@@ -29,15 +42,23 @@ out/
 **/.rpl-generated.json
 **/.rpl/attrs/*/attr
 **/.rpl/attrs/*/attr.exe
+/examples/*/models/
+**/target/
+**/__pycache__/
+*.py[cod]
 
 # Node / VS Code extension
 **/node_modules/
 **/npm-debug.log*
 **/yarn-debug.log*
 **/yarn-error.log*
+**/.npm/
+**/.pnpm-store/
+*.tgz
 editors/vscode/rpl/*.vsix
 
 # Temporary files
 .cache/
 tmp/
 *.tmp
+*.temp

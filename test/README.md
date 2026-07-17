@@ -30,8 +30,8 @@ behavior.
 make test-projects
 ```
 
-To validate the complete examples cookbook, including all 36 focused plugin
-schemas and the four clean-room projects, run:
+To validate the complete examples cookbook, including all 38 focused plugin
+schemas and the five clean-room projects, run:
 
 ```bash
 make test-examples
