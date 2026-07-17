@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"rpl/internal/config"
 	"rpl/internal/plugins"
 	"rpl/pkg/ansi"
 	rplerr "rpl/pkg/error"
@@ -31,13 +32,30 @@ func (app *App) attrCommand(args []string) error {
 }
 
 func (app *App) initAttr(args []string) error {
-	identifier, err := onePathArg("attr init", args)
+	global, remaining, err := extractGlobalFlag(args)
 	if err != nil {
 		return err
 	}
 
+	identifier, err := onePathArg("attr init", remaining)
+	if err != nil {
+		return err
+	}
+
+	attrsRoot := ""
+	if global {
+		if _, err := config.LoadOrCreateGlobal(); err != nil {
+			return err
+		}
+		attrsRoot, err = config.GlobalAttrsPath()
+		if err != nil {
+			return err
+		}
+	}
+
 	result, err := plugins.CreateScaffold(plugins.ScaffoldInput{
 		ProjectRoot: ".",
+		AttrsRoot:   attrsRoot,
 		Identifier:  identifier,
 	})
 	if err != nil {
@@ -54,6 +72,23 @@ func (app *App) initAttr(args []string) error {
 	}
 
 	return nil
+}
+
+func extractGlobalFlag(args []string) (bool, []string, error) {
+	global := false
+	remaining := make([]string, 0, len(args))
+	for _, arg := range args {
+		switch strings.TrimSpace(arg) {
+		case "--global", "-g":
+			global = true
+		default:
+			if strings.HasPrefix(strings.TrimSpace(arg), "-") {
+				return false, nil, rplerr.Newf(localize.Text("неизвестный флаг %q", "unknown flag %q"), arg)
+			}
+			remaining = append(remaining, arg)
+		}
+	}
+	return global, remaining, nil
 }
 
 func (app *App) listAttrs() error {

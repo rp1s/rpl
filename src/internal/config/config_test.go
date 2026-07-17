@@ -9,6 +9,7 @@ import (
 
 func TestLoadDefaultOrDefaultDoesNotCreateConfig(t *testing.T) {
 	tempDir := t.TempDir()
+	t.Setenv(GlobalHomeEnv, filepath.Join(tempDir, "global"))
 	originalWD, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("getwd: %v", err)
@@ -36,6 +37,7 @@ func TestLoadDefaultOrDefaultDoesNotCreateConfig(t *testing.T) {
 }
 
 func TestLoadForBasePrefersNearestProjectConfig(t *testing.T) {
+	t.Setenv(GlobalHomeEnv, filepath.Join(t.TempDir(), "global"))
 	projectDir := filepath.Join(t.TempDir(), "project")
 	configPath := filepath.Join(projectDir, ".rpl", "config.xml")
 	sourcePath := filepath.Join(projectDir, "src", "main.rpl")
@@ -65,5 +67,68 @@ func TestLoadForBasePrefersNearestProjectConfig(t *testing.T) {
 	}
 	if loaded.Localization.Language != localize.LangRU {
 		t.Fatalf("language = %q, want %q", loaded.Localization.Language, localize.LangRU)
+	}
+}
+
+func TestGlobalConfigProvidesDefaultsForProjects(t *testing.T) {
+	globalDir := filepath.Join(t.TempDir(), "portable-rpl")
+	t.Setenv(GlobalHomeEnv, globalDir)
+
+	global := GlobalDefault()
+	global.Localization.Language = localize.LangRU
+	useColor := false
+	global.Localization.UseColor = &useColor
+	globalPath, err := GlobalPath()
+	if err != nil {
+		t.Fatalf("global path: %v", err)
+	}
+	if err := Save(globalPath, global); err != nil {
+		t.Fatalf("save global config: %v", err)
+	}
+
+	projectDir := filepath.Join(t.TempDir(), "project")
+	if err := os.MkdirAll(projectDir, 0o755); err != nil {
+		t.Fatalf("mkdir project: %v", err)
+	}
+
+	loaded, _, exists, err := LoadForBase(projectDir)
+	if err != nil {
+		t.Fatalf("load effective config: %v", err)
+	}
+	if exists {
+		t.Fatal("did not expect a project config")
+	}
+	if loaded.Localization.Language != localize.LangRU {
+		t.Fatalf("language = %q, want %q", loaded.Localization.Language, localize.LangRU)
+	}
+	if loaded.UseColor() {
+		t.Fatal("expected global use_color=false")
+	}
+	if got, want := loaded.Runtimes.Directory, "attrs"; got != want {
+		t.Fatalf("runtime directory = %q, want %q", got, want)
+	}
+}
+
+func TestGlobalAttrsPathResolvesRelativeToGlobalDir(t *testing.T) {
+	globalDir := filepath.Join(t.TempDir(), "config")
+	t.Setenv(GlobalHomeEnv, globalDir)
+
+	cfg := GlobalDefault()
+	cfg.Runtimes.Directory = "shared/plugins"
+	path, err := GlobalPath()
+	if err != nil {
+		t.Fatalf("global path: %v", err)
+	}
+	if err := Save(path, cfg); err != nil {
+		t.Fatalf("save global config: %v", err)
+	}
+
+	got, err := GlobalAttrsPath()
+	if err != nil {
+		t.Fatalf("global attrs path: %v", err)
+	}
+	want := filepath.Join(globalDir, "shared", "plugins")
+	if got != want {
+		t.Fatalf("attrs path = %q, want %q", got, want)
 	}
 }

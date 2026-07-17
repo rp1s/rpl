@@ -63,6 +63,7 @@ func TestFindConfiguredAtResolvesProjectRelativeAttrsFromSourcePath(t *testing.T
 }
 
 func TestConfiguredSearchPathsIncludeBundledAttrs(t *testing.T) {
+	t.Setenv(config.GlobalHomeEnv, filepath.Join(t.TempDir(), "global"))
 	projectDir := t.TempDir()
 	sourcePath := filepath.Join(projectDir, "src", "main.rpl")
 	if err := os.MkdirAll(filepath.Dir(sourcePath), 0o755); err != nil {
@@ -87,4 +88,67 @@ func TestConfiguredSearchPathsIncludeBundledAttrs(t *testing.T) {
 		}
 	}
 	t.Fatalf("bundled attrs path %q is missing from %v", want, paths)
+}
+
+func TestFindConfiguredAtUsesGlobalAttrsAndProjectOverrides(t *testing.T) {
+	globalDir := filepath.Join(t.TempDir(), "global")
+	t.Setenv(config.GlobalHomeEnv, globalDir)
+
+	globalAttrs, err := config.GlobalAttrsPath()
+	if err != nil {
+		t.Fatalf("global attrs path: %v", err)
+	}
+	globalAttrDir := filepath.Join(globalAttrs, "acme:demo")
+	writeTestAttr(t, globalAttrDir, "demo", "acme", "1.0.0")
+
+	projectDir := filepath.Join(t.TempDir(), "project")
+	sourcePath := filepath.Join(projectDir, "src", "main.rpl")
+	if err := os.MkdirAll(filepath.Dir(sourcePath), 0o755); err != nil {
+		t.Fatalf("mkdir source: %v", err)
+	}
+	if err := os.WriteFile(sourcePath, []byte("model User {}"), 0o644); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+
+	globalItem, err := FindConfiguredAt(sourcePath, "demo", "acme")
+	if err != nil {
+		t.Fatalf("find global attr: %v", err)
+	}
+	if got, want := globalItem.Manifest.Version, "1.0.0"; got != want {
+		t.Fatalf("global version = %q, want %q", got, want)
+	}
+
+	projectAttrDir := filepath.Join(projectDir, ".rpl", "attrs", "acme:demo")
+	writeTestAttr(t, projectAttrDir, "demo", "acme", "2.0.0")
+	projectItem, err := FindConfiguredAt(sourcePath, "demo", "acme")
+	if err != nil {
+		t.Fatalf("find project attr: %v", err)
+	}
+	if got, want := projectItem.Manifest.Version, "2.0.0"; got != want {
+		t.Fatalf("project version = %q, want %q", got, want)
+	}
+	if got, want := projectItem.ManifestPath, filepath.Join(projectAttrDir, "manifest.xml"); got != want {
+		t.Fatalf("manifest path = %q, want %q", got, want)
+	}
+}
+
+func writeTestAttr(t *testing.T, dir string, name string, author string, version string) {
+	t.Helper()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir attr: %v", err)
+	}
+	manifest := `<?xml version="1.0" encoding="UTF-8"?>
+<attr>
+  <name>` + name + `</name>
+  <author>` + author + `</author>
+  <version>` + version + `</version>
+  <entry>attr</entry>
+</attr>
+`
+	if err := os.WriteFile(filepath.Join(dir, "manifest.xml"), []byte(manifest), 0o644); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "attr"), []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatalf("write executable: %v", err)
+	}
 }

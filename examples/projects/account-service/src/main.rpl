@@ -1,0 +1,32 @@
+package account
+
+target(lang: golang)
+
+import (
+    time "time"
+)
+
+attrs (
+    "rpl:sql"
+    "rpl:std"
+    "rpl:validate"
+)
+
+@comment("Account returned by the public account service.")
+@sql(db: "sqlite", table: "accounts")
+model Account {
+    Id int @sql(primaryKey: true)
+    Email string
+    {
+        @sql(unique: true)
+        @validate(email)
+    }
+    DisplayName string
+    {
+        @sql(index: true)
+        @validate(min: 2, max: 64)
+    }
+    Status string = "active" @validate(min: 4, max: 7)
+    CreatedAt time.Time @sql(default: "now")
+    UpdatedAt time.Time @sql(default: "now", updatedAt: true)
+}

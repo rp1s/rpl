@@ -7,12 +7,14 @@ import (
 	"path/filepath"
 	"rpl/internal/config"
 	"rpl/internal/fsutil"
+	rplerr "rpl/pkg/error"
 	"rpl/pkg/error/localize"
 	"strings"
 )
 
 type ScaffoldInput struct {
 	ProjectRoot string
+	AttrsRoot   string
 	Identifier  string
 	Description string
 	DisplayName string
@@ -23,6 +25,7 @@ type ScaffoldResult struct {
 	AttrDir       string
 	ManifestPath  string
 	SourcePath    string
+	GoModPath     string
 	ReadmePath    string
 	CreatedPaths  []string
 	ExistingPaths []string
@@ -46,14 +49,26 @@ func CreateScaffold(input ScaffoldInput) (ScaffoldResult, error) {
 		return ScaffoldResult{}, fmt.Errorf(localize.Text("определение пути проекта %q: %w", "resolve project path %q: %w"), input.ProjectRoot, err)
 	}
 
-	pluginsRoot, err := resolvePluginsRoot(projectRoot)
-	if err != nil {
-		return ScaffoldResult{}, err
+	pluginsRoot := strings.TrimSpace(input.AttrsRoot)
+	if pluginsRoot != "" {
+		pluginsRoot, err = filepath.Abs(pluginsRoot)
+		if err != nil {
+			return ScaffoldResult{}, fmt.Errorf(localize.Text("определение папки attrs %q: %w", "resolve attrs directory %q: %w"), input.AttrsRoot, err)
+		}
+	} else {
+		pluginsRoot, err = resolvePluginsRoot(projectRoot)
+		if err != nil {
+			return ScaffoldResult{}, err
+		}
 	}
 
 	folderName := strings.TrimSpace(input.AttrFolder)
 	if folderName == "" {
 		folderName = author + ":" + name
+	}
+	sdkRoot, err := resolveScaffoldSDKRoot(projectRoot)
+	if err != nil {
+		return ScaffoldResult{}, err
 	}
 
 	attrDir := filepath.Join(pluginsRoot, folderName)
@@ -75,6 +90,7 @@ func CreateScaffold(input ScaffoldInput) (ScaffoldResult, error) {
 		AttrDir:      attrDir,
 		ManifestPath: filepath.Join(attrDir, DefaultManifestName),
 		SourcePath:   filepath.Join(attrDir, "main.go"),
+		GoModPath:    filepath.Join(attrDir, "go.mod"),
 		ReadmePath:   filepath.Join(attrDir, "README.md"),
 	}
 	generatePath := filepath.Join(attrDir, "generate.go")
@@ -120,7 +136,82 @@ func CreateScaffold(input ScaffoldInput) (ScaffoldResult, error) {
 		result.ExistingPaths = append(result.ExistingPaths, result.ReadmePath)
 	}
 
+	if created, err := writeFileIfMissing(result.GoModPath, goModTemplate(author, name, sdkRoot)); err != nil {
+		return ScaffoldResult{}, err
+	} else if created {
+		result.CreatedPaths = append(result.CreatedPaths, result.GoModPath)
+	} else {
+		result.ExistingPaths = append(result.ExistingPaths, result.GoModPath)
+	}
+
 	return result, nil
+}
+
+func resolveScaffoldSDKRoot(projectRoot string) (string, error) {
+	candidates := make([]string, 0, 6)
+	if configured := strings.TrimSpace(os.Getenv("RPL_SDK_PATH")); configured != "" {
+		candidates = append(candidates, configured)
+	}
+	candidates = append(candidates, config.BundledSDKPathFromExecutable())
+
+	if current, err := os.Getwd(); err == nil {
+		for dir := current; ; dir = filepath.Dir(dir) {
+			candidates = append(candidates, dir, filepath.Join(dir, "src"))
+			parent := filepath.Dir(dir)
+			if parent == dir {
+				break
+			}
+		}
+	}
+	if strings.TrimSpace(projectRoot) != "" {
+		candidates = append(candidates, projectRoot, filepath.Join(projectRoot, "src"))
+	}
+
+	seen := make(map[string]struct{})
+	for _, candidate := range candidates {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" {
+			continue
+		}
+		absolute, err := filepath.Abs(candidate)
+		if err != nil {
+			continue
+		}
+		absolute = filepath.Clean(absolute)
+		if _, ok := seen[absolute]; ok {
+			continue
+		}
+		seen[absolute] = struct{}{}
+		if scaffoldSDKExists(absolute) {
+			return absolute, nil
+		}
+	}
+
+	return "", rplerr.New(localize.Text(
+		"SDK RPL для attr scaffold не найден",
+		"RPL SDK for attr scaffolding was not found",
+	)).WithHint(localize.Text(
+		"Используйте release-сборку с `.rpl/sdk` рядом с бинарником или задайте RPL_SDK_PATH.",
+		"Use a release build with `.rpl/sdk` next to the binary or set RPL_SDK_PATH.",
+	))
+}
+
+func scaffoldSDKExists(root string) bool {
+	for _, path := range []string{
+		filepath.Join(root, "go.mod"),
+		filepath.Join(root, "pkg", "sdk", "runtime.go"),
+	} {
+		info, err := os.Stat(path)
+		if err != nil || info.IsDir() {
+			return false
+		}
+	}
+	return true
+}
+
+func goModTemplate(author string, name string, sdkRoot string) string {
+	moduleName := "rpl-attr/" + strings.TrimSpace(author) + "/" + strings.TrimSpace(name)
+	return fmt.Sprintf("module %s\n\ngo 1.25.6\n\nrequire rpl v0.0.0\n\nreplace rpl => %q\n", moduleName, filepath.ToSlash(sdkRoot))
 }
 
 // resolvePluginsRoot reads the project config if it exists and resolves the
@@ -335,6 +426,7 @@ func readmeTemplate(author string, name string) string {
 ## Файлы
 
 - manifest.xml: метаданные attr для discovery
+- go.mod: самостоятельный Go-модуль со ссылкой на SDK из дистрибутива RPL
 - main.go: точка входа и описание capabilities
 - generate.go: генерация по модели и по файлу
 - analysis.go: диагностика, claims и документация
@@ -343,7 +435,7 @@ func readmeTemplate(author string, name string) string {
 
 Из этой папки можно собрать attr так:
 
-`+"```bash\n"+`go build -o attr *.go
+`+"```bash\n"+`go build -o attr .
 `+"```"+`
 
 ## Контракт

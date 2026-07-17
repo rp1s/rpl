@@ -31,6 +31,8 @@ func (app *App) Execute(args []string) error {
 		return app.initProject(args[1:])
 	case "attr":
 		return app.attrCommand(args[1:])
+	case "config":
+		return app.configCommand(args[1:])
 	case "runtime":
 		return app.RunJSONAPI()
 	case "help", "-h", "--help":
@@ -78,7 +80,7 @@ func renderHelp(out io.Writer) {
 		{
 			title: localize.Text("Атрибуты", "Attrs"),
 			entries: []helpEntry{
-				{command: "attr init author:name", description: localize.Text("создать каркас attr", "create an attr scaffold")},
+				{command: "attr init [--global] author:name", description: localize.Text("создать локальный или глобальный attr", "create a local or global attr")},
 				{command: "attr list", description: localize.Text("показать локальные attrs", "list local attrs")},
 				{command: "attr info author:name", description: localize.Text("показать манифест attr", "show attr manifest")},
 			},
@@ -86,6 +88,8 @@ func renderHelp(out io.Writer) {
 		{
 			title: localize.Text("Инструменты", "Tools"),
 			entries: []helpEntry{
+				{command: "config show [--global]", description: localize.Text("показать эффективную конфигурацию", "show effective configuration")},
+				{command: "config init [--global]", description: localize.Text("создать конфигурацию", "create configuration")},
 				{command: "runtime", description: localize.Text("запустить JSON API сервер", "start the JSON API server")},
 				{command: "help", description: localize.Text("показать эту справку", "show this help")},
 			},

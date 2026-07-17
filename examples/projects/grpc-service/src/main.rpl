@@ -1,0 +1,15 @@
+package grpcdemo
+
+target(lang: golang)
+
+attrs (
+    "rpl:grpc"
+    "rpl:validate"
+)
+
+@grpc()
+model User {
+    Id int @grpc.id()
+    Name string @validate(min: 2, max: 64)
+    Email string @validate(email)
+}

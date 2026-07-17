@@ -119,21 +119,24 @@ Every CLI archive contains:
 rpl-v0.6.0-<os>-<arch>/
 ├── rpl or rpl.exe
 ├── .rpl/
-│   └── attrs/
-│       ├── rpl_std/
-│       ├── rpl_validate/
-│       ├── rpl_sql/
-│       ├── rpl_mongodb/
-│       ├── rpl_redis/
-│       ├── rpl_grpc/
-│       └── rpl_transport/
+│   ├── attrs/
+│   │   ├── rpl_std/
+│   │   ├── rpl_validate/
+│   │   ├── rpl_sql/
+│   │   ├── rpl_mongodb/
+│   │   ├── rpl_redis/
+│   │   ├── rpl_grpc/
+│   │   └── rpl_transport/
+│   └── sdk/
+│       ├── go.mod
+│       └── pkg/sdk/
 ├── README.md
 └── LICENSE
 ```
 
-Keep the executable and its `.rpl/attrs` directory together. RPL discovers
-these bundled attrs relative to the executable and also searches the active
-project configuration.
+Keep the executable and its `.rpl` directory together. RPL discovers bundled
+attrs relative to the executable. The SDK sidecar lets `rpl attr init` create a
+self-contained Go module that can compile outside the RPL source repository.
 
 Verify the download against `checksums.txt`, then run:
 
@@ -166,6 +169,7 @@ The host build is created under:
 ```text
 build/<goos>-<goarch>/rpl
 build/<goos>-<goarch>/.rpl/attrs/
+build/<goos>-<goarch>/.rpl/sdk/
 ```
 
 To build and install into `~/.local/bin` together with bundled attrs:
@@ -174,7 +178,8 @@ To build and install into `~/.local/bin` together with bundled attrs:
 make install
 ```
 
-The installer adds `~/.local/bin` to the detected shell profile if necessary.
+The installer copies the CLI, bundled attrs, and attr SDK together, then adds
+`~/.local/bin` to the detected shell profile if necessary.
 
 ## Quick start
 
@@ -604,12 +609,30 @@ looks for `src/main.rpl` and then `main.rpl`.
 rpl attr list
 rpl attr info author:name
 rpl attr init author:name
+rpl attr init --global author:name
 ```
 
 - `list` prints discovered manifests and versions;
 - `info` prints one attr manifest;
-- `init` creates a local SDK v2 attr scaffold with analysis, generation,
-  documentation, manifest, and README files.
+- `init` creates an SDK v2 attr scaffold with analysis, generation,
+  documentation, manifest, and README files;
+- `init --global` creates the scaffold in the user-wide attrs directory.
+
+The scaffold includes its own `go.mod` with a local `replace rpl => ...`
+pointing at the SDK shipped beside the active RPL executable. On first discovery
+RPL builds the missing attr binary automatically. Source-tree development can
+override SDK lookup with `RPL_SDK_PATH=/path/to/rpl/src`.
+
+### Configuration management
+
+```text
+rpl config show [--global]
+rpl config path [--global]
+rpl config init [--global]
+```
+
+Without `--global`, config commands operate on the current project. With it,
+they operate on the user-wide RPL config and attrs directory.
 
 ### Runtime
 
@@ -621,8 +644,9 @@ Starts the JSON API over stdin/stdout for editors and other tools.
 
 ## Project configuration
 
-RPL searches upward from the active schema for `.rpl/config.xml`. If no file is
-found, in-memory defaults are used.
+RPL searches upward from the active schema for `.rpl/config.xml`. Project
+settings are overlaid on the user-wide config. If neither file exists,
+in-memory defaults are used.
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -647,9 +671,61 @@ found, in-memory defaults are used.
 | `localization/use_color` | ANSI output for CLI diagnostics |
 | `author_data/author_name` | author inserted into generated metadata where supported |
 
-Attr discovery considers the configured project directory and bundled attrs
-next to the RPL executable. Project-local attrs can override or extend the
-installed toolchain.
+### Global configuration and attrs
+
+Create or inspect the per-user configuration with:
+
+```text
+rpl config init --global
+rpl config path --global
+rpl config show --global
+```
+
+The default location follows the operating system user config directory:
+
+| Platform | Typical global config |
+| --- | --- |
+| Linux | `~/.config/rpl/config.xml` |
+| macOS | `~/Library/Application Support/rpl/config.xml` |
+| Windows | `%AppData%\rpl\config.xml` |
+
+Set `RPL_CONFIG_HOME` when a portable toolchain, CI job, or editor sandbox needs
+an explicit location. The global config uses the same XML shape as the project
+config; relative runtime paths resolve from the global config directory.
+
+Create one attr that is visible to every project:
+
+```text
+rpl attr init --global acme:audit
+rpl attr list
+rpl attr info acme:audit
+```
+
+Attr discovery has deterministic precedence:
+
+1. the nearest project's configured attrs;
+2. attrs configured in the global user config;
+3. built-in attrs bundled next to the RPL executable.
+
+The first matching `author:name` wins. A repository can therefore pin or
+develop a project-local attr without deleting the globally installed version.
+Global attrs make shared company generators and personal tooling available
+without copying them into every repository.
+
+### Config CLI
+
+```text
+rpl config show                 # effective config for the current project
+rpl config path                 # nearest project config path
+rpl config init                 # create .rpl/config.xml
+rpl config show --global        # user-wide values only
+rpl config path --global        # user-wide config path
+rpl config init --global        # create user-wide config and attrs location
+```
+
+Project-local settings win for the active schema. Global localization is used
+when a project does not override it. Attr directories are searched as separate
+layers rather than merged into one writable folder.
 
 ## Runtime API and attr SDK
 
@@ -763,6 +839,7 @@ Extension source and additional documentation live in
 | `08-mongodb` | collections, BSON, indexes, search, sort, CRUD |
 | `09-transport` | stdin/stdout process transport |
 | `99-showcase` | end-to-end combinations of built-in attrs |
+| `projects` | standalone Go modules with app code, commands, and tests |
 
 Run an example from the repository root:
 
@@ -771,6 +848,20 @@ go -C src run ./cmd run ../examples/03-sql/01-user-storage.rpl out /tmp/rpl-sql
 go -C src run ./cmd run ../examples/05-grpc/01-basic-service.rpl out /tmp/rpl-grpc
 go -C src run ./cmd run ../examples/99-showcase/main.rpl out /tmp/rpl-showcase
 ```
+
+For realistic application structure, start with the
+[`examples/projects`](examples/projects) collection:
+
+| Project | Generated boundary | Handwritten boundary |
+| --- | --- | --- |
+| `account-service` | SQL store, SQLite schema, validation, metadata | validation-first account service and executor test double |
+| `session-cache` | Redis key/hash codec, ignored fields, validation | cache entry boundary and round-trip tests |
+| `process-service` | stdin/stdout server and child-process client | concurrency-safe user service and protocol test |
+| `grpc-service` | protobuf, gRPC client/server adapters, validation | in-memory domain service and TCP server |
+
+Each project contains its own `.rpl/config.xml`, `go.mod`, `cmd/`, `internal/`,
+README, and tests. Generated files are excluded so CI proves they can always be
+recreated from the schema.
 
 ## Repository architecture
 
@@ -825,6 +916,7 @@ go -C src run ./cmd run ../examples/99-showcase/main.rpl out /tmp/rpl-showcase
 make help
 make test
 make test-attrs
+make test-projects
 make build-host
 make build-all
 make plugin
@@ -842,12 +934,20 @@ go -C src vet ./...
 are invoked from their directories because runtime directory names contain
 `author:name` identifiers.
 
+`make test-projects` performs the strongest example check: it copies every full
+project without generated files, builds its attrs, regenerates the module,
+asserts key generated APIs, and runs that module's `go test ./...`. These tests
+are also part of the compiler package selected by `make test`.
+
 ### Integration fixture
 
 ```bash
 cd test/app
 go test ./...
 ```
+
+See [`test/README.md`](test/README.md) for the boundary between unit tests,
+built-in attr tests, the legacy fixture, and full generated-project tests.
 
 The fixture compiles generated models, validation, SQL, protobuf, gRPC client,
 and gRPC server packages together.
@@ -960,7 +1060,3 @@ Update `.rpl/config.xml`:
 ## License
 
 RPL is released under the [Apache License 2.0](LICENSE).
-
-- Repository: <https://github.com/rp1s/rpl>
-- Releases: <https://github.com/rp1s/rpl/releases>
-- Issues: <https://github.com/rp1s/rpl/issues>

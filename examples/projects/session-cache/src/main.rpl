@@ -1,0 +1,25 @@
+package cache
+
+target(lang: golang)
+
+import (
+    time "time"
+)
+
+attrs (
+    "rpl:redis"
+    "rpl:std"
+    "rpl:validate"
+)
+
+@comment("Serializable session cache entry with a stable Redis key.")
+@redis(db: "cache", table: "sessions", ttl: 3600)
+model Session {
+    Id string @redis(unique: true) @validate(min: 8, max: 64)
+    UserId int @validate(min: 1)
+    Token string @validate(min: 16, max: 256)
+    Roles []string
+    IssuedAt time.Time
+    ExpiresAt time.Time
+    DebugNote string @redis(ignore: true)
+}

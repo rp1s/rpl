@@ -21,10 +21,12 @@ HOST_EXT := $(if $(filter windows,$(HOST_GOOS)),.exe,)
 HOST_BUILD_DIR := $(BUILD_DIR)/$(HOST_GOOS)-$(HOST_GOARCH)
 HOST_BIN_PATH := $(HOST_BUILD_DIR)/$(APP_NAME)$(HOST_EXT)
 HOST_ATTRS_PATH := $(HOST_BUILD_DIR)/.rpl/attrs
+HOST_SDK_PATH := $(HOST_BUILD_DIR)/.rpl/sdk
 INSTALL_ATTRS_DIR := $(INSTALL_DIR)/.rpl/attrs
+INSTALL_SDK_DIR := $(INSTALL_DIR)/.rpl/sdk
 .DEFAULT_GOAL := install
 
-.PHONY: build build-all build-host build-target build-attrs-target build-fingerprint-target install uninstall test test-attrs clean help plugin vscode-plugin install-host-attrs
+.PHONY: build build-all build-host build-target build-attrs-target build-sdk-target build-fingerprint-target install uninstall test test-attrs test-projects clean help plugin vscode-plugin install-host-attrs install-host-sdk
 
 help:
 	@echo "Available targets:"
@@ -37,6 +39,7 @@ help:
 	@echo "  make uninstall"
 	@echo "  make test"
 	@echo "  make test-attrs     # test every built-in attr despite ':' in directory names"
+	@echo "  make test-projects  # generate and compile every full example project"
 	@echo "  make plugin          # npm install + vsce package for VS Code extension"
 	@echo "  make clean"
 	@echo ""
@@ -72,6 +75,7 @@ build-target:
 	echo "Building $(APP_NAME) for $$goos/$$goarch"; \
 	GOCACHE="$(GOCACHE)" GOOS="$$goos" GOARCH="$$goarch" "$(GO)" -C "$(MODULE_DIR)" build $(if $(strip $(RPL_LDFLAGS)),-ldflags "$(RPL_LDFLAGS)",) -o "$$out_dir/$(APP_NAME)$$ext" "$(CMD_PATH)"; \
 	"$(MAKE)" --no-print-directory build-attrs-target GOOS_TARGET="$$goos" GOARCH_TARGET="$$goarch" OUTPUT_ROOT="$$out_dir"; \
+	"$(MAKE)" --no-print-directory build-sdk-target OUTPUT_ROOT="$$out_dir"; \
 	"$(MAKE)" --no-print-directory build-fingerprint-target GOOS_TARGET="$$goos" GOARCH_TARGET="$$goarch"; \
 	echo "Built $$out_dir"
 
@@ -103,6 +107,19 @@ build-attrs-target:
 		( cd "$$dir" && sources=$$(find . -maxdepth 1 -type f -name '*.go' ! -name '*_test.go' | sort) && GOCACHE="$(GOCACHE)" GOOS="$$goos" GOARCH="$$goarch" "$(GO)" build -o "$$target_dir/attr$$ext" $$sources ); \
 	done
 
+build-sdk-target:
+	@set -e; \
+	sdk_root="$(OUTPUT_ROOT)/.rpl/sdk"; \
+	if [ -z "$(OUTPUT_ROOT)" ]; then \
+		echo "OUTPUT_ROOT is required"; \
+		exit 1; \
+	fi; \
+	rm -rf "$$sdk_root"; \
+	mkdir -p "$$sdk_root/pkg"; \
+	printf 'module rpl\n\ngo 1.25.6\n' > "$$sdk_root/go.mod"; \
+	cp -R "$(MODULE_DIR)/pkg/sdk" "$$sdk_root/pkg/sdk"; \
+	echo "Bundled attr SDK in $$sdk_root"
+
 build-fingerprint-target:
 	@set -e; \
 	goos="$(GOOS_TARGET)"; \
@@ -120,7 +137,7 @@ build-fingerprint-target:
 	echo "Building $(FINGERPRINT_APP_NAME) for $$goos/$$goarch -> $$out_dir"; \
 	GOCACHE="$(GOCACHE)" GOOS="$$goos" GOARCH="$$goarch" "$(GO)" -C "$(MODULE_DIR)" build -o "$$out_dir/$(FINGERPRINT_APP_NAME)$$ext" "$(FINGERPRINT_CMD_PATH)"
 
-install: build-host install-host-attrs
+install: build-host install-host-attrs install-host-sdk
 	@mkdir -p "$(INSTALL_DIR)"
 	@rm -f "$(INSTALL_DIR)/$(APP_NAME)$(HOST_EXT)"
 	@cp "$(HOST_BIN_PATH)" "$(INSTALL_DIR)/$(APP_NAME)$(HOST_EXT)"
@@ -133,6 +150,7 @@ install: build-host install-host-attrs
 	fi
 	@echo "Installed $(APP_NAME) to $(INSTALL_DIR)/$(APP_NAME)$(HOST_EXT)"
 	@echo "Installed bundled attrs to $(INSTALL_ATTRS_DIR)"
+	@echo "Installed attr SDK to $(INSTALL_SDK_DIR)"
 	@echo "Open a new shell or run: source $(PROFILE)"
 
 install-host-attrs:
@@ -145,11 +163,23 @@ install-host-attrs:
 		echo "No bundled attrs found in $(HOST_ATTRS_PATH)"; \
 	fi
 
+install-host-sdk:
+	@mkdir -p "$(INSTALL_DIR)/.rpl"
+	@rm -rf "$(INSTALL_SDK_DIR)"
+	@if [ -d "$(HOST_SDK_PATH)" ]; then \
+		cp -R "$(HOST_SDK_PATH)" "$(INSTALL_SDK_DIR)"; \
+		echo "Attr SDK copied from $(HOST_SDK_PATH)"; \
+	else \
+		echo "No attr SDK found in $(HOST_SDK_PATH)"; \
+	fi
+
 uninstall:
 	@rm -f "$(INSTALL_DIR)/$(APP_NAME)$(HOST_EXT)"
 	@rm -rf "$(INSTALL_ATTRS_DIR)"
+	@rm -rf "$(INSTALL_SDK_DIR)"
 	@echo "Removed $(INSTALL_DIR)/$(APP_NAME)$(HOST_EXT)"
 	@echo "Removed bundled attrs from $(INSTALL_ATTRS_DIR)"
+	@echo "Removed attr SDK from $(INSTALL_SDK_DIR)"
 	@echo "If needed, remove this line from $(PROFILE): $(PATH_EXPORT)"
 
 test:
@@ -162,6 +192,9 @@ test-attrs:
 		echo "Testing attr $$(basename "$$dir")"; \
 		( cd "$$dir" && GOCACHE="$(GOCACHE)" "$(GO)" test *.go ); \
 	done
+
+test-projects:
+	@GOCACHE="$(GOCACHE)" "$(GO)" -C "$(MODULE_DIR)" test ./internal/service/compiler -run '^TestProjectExamplesGenerateAndCompile$$' -count=1
 
 plugin: vscode-plugin
 

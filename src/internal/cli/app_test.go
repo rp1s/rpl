@@ -19,6 +19,7 @@ func TestAttrInitCreatesScaffold(t *testing.T) {
 	defer func() {
 		_ = os.Chdir(originalWD)
 	}()
+	t.Setenv("RPL_SDK_PATH", filepath.Clean(filepath.Join(originalWD, "..", "..")))
 
 	if err := os.Chdir(tempDir); err != nil {
 		t.Fatalf("chdir: %v", err)
@@ -33,6 +34,7 @@ func TestAttrInitCreatesScaffold(t *testing.T) {
 	assertPathExists(t, filepath.Join(tempDir, ".rpl", "attrs", "rpl:demo", "main.go"))
 	assertPathExists(t, filepath.Join(tempDir, ".rpl", "attrs", "rpl:demo", "generate.go"))
 	assertPathExists(t, filepath.Join(tempDir, ".rpl", "attrs", "rpl:demo", "analysis.go"))
+	assertPathExists(t, filepath.Join(tempDir, ".rpl", "attrs", "rpl:demo", "go.mod"))
 	assertPathExists(t, filepath.Join(tempDir, ".rpl", "attrs", "rpl:demo", "README.md"))
 
 	mainBody, err := os.ReadFile(filepath.Join(tempDir, ".rpl", "attrs", "rpl:demo", "main.go"))
@@ -68,6 +70,16 @@ func TestAttrInitCreatesScaffold(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read analysis.go: %v", err)
 	}
+
+	goModBody, err := os.ReadFile(filepath.Join(tempDir, ".rpl", "attrs", "rpl:demo", "go.mod"))
+	if err != nil {
+		t.Fatalf("read go.mod: %v", err)
+	}
+	for _, want := range []string{"module rpl-attr/rpl/demo", "require rpl v0.0.0", "replace rpl =>"} {
+		if !strings.Contains(string(goModBody), want) {
+			t.Fatalf("go.mod does not contain %q\n%s", want, string(goModBody))
+		}
+	}
 	for _, want := range []string{
 		`"rpl/pkg/sdk/analysis"`,
 		`"rpl/pkg/sdk/attrs"`,
@@ -81,6 +93,51 @@ func TestAttrInitCreatesScaffold(t *testing.T) {
 			t.Fatalf("analysis.go does not contain %q\n%s", want, string(analysisBody))
 		}
 	}
+}
+
+func TestAttrInitGlobalUsesUserConfigDirectory(t *testing.T) {
+	globalDir := filepath.Join(t.TempDir(), "global")
+	t.Setenv(config.GlobalHomeEnv, globalDir)
+
+	app := New(config.Default())
+	if err := app.Execute([]string{"attr", "init", "--global", "acme:audit"}); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	assertPathExists(t, filepath.Join(globalDir, "config.xml"))
+	assertPathExists(t, filepath.Join(globalDir, "attrs", "acme:audit", "manifest.xml"))
+	assertPathExists(t, filepath.Join(globalDir, "attrs", "acme:audit", "main.go"))
+	assertPathExists(t, filepath.Join(globalDir, "attrs", "acme:audit", "go.mod"))
+}
+
+func TestConfigInitCreatesProjectAndGlobalConfigs(t *testing.T) {
+	tempDir := t.TempDir()
+	globalDir := filepath.Join(tempDir, "global")
+	t.Setenv(config.GlobalHomeEnv, globalDir)
+
+	originalWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(originalWD) })
+	projectDir := filepath.Join(tempDir, "project")
+	if err := os.MkdirAll(projectDir, 0o755); err != nil {
+		t.Fatalf("mkdir project: %v", err)
+	}
+	if err := os.Chdir(projectDir); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+
+	app := New(config.Default())
+	if err := app.Execute([]string{"config", "init"}); err != nil {
+		t.Fatalf("init project config: %v", err)
+	}
+	if err := app.Execute([]string{"config", "init", "--global"}); err != nil {
+		t.Fatalf("init global config: %v", err)
+	}
+
+	assertPathExists(t, filepath.Join(projectDir, ".rpl", "config.xml"))
+	assertPathExists(t, filepath.Join(globalDir, "config.xml"))
 }
 
 func TestDocsGeneratesProjectReadmeFromDefaultSchema(t *testing.T) {

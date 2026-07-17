@@ -61,7 +61,7 @@ func configuredSearchPathsForBase(basePath string) ([]string, error) {
 	}
 
 	seen := make(map[string]struct{})
-	items := make([]string, 0, 4)
+	items := make([]string, 0, 6)
 	appendPaths := func(dirs []string) {
 		for _, dir := range dirs {
 			dir = strings.TrimSpace(dir)
@@ -84,6 +84,19 @@ func configuredSearchPathsForBase(basePath string) ([]string, error) {
 			appendPaths(configuredSearchPaths(fallbackCtx.cfg.Runtimes.Directory, fallbackCtx.projectRoot))
 		}
 	}
+
+	// User-wide attrs are shared by every project. They come after project
+	// locations so a repository can pin or override an attr locally, but before
+	// bundled attrs so users can upgrade an installed generator independently.
+	globalRoot, globalErr := config.GlobalDir()
+	globalCfg, globalCfgErr := config.LoadGlobalOrDefault()
+	if globalErr != nil {
+		return nil, globalErr
+	}
+	if globalCfgErr != nil {
+		return nil, globalCfgErr
+	}
+	appendPaths(configuredGlobalSearchPaths(globalCfg.Runtimes.Directory, globalRoot))
 
 	// Installed releases keep built-in attrs next to the executable. Keep this
 	// fallback last so project-local and source-tree attrs can intentionally
@@ -137,6 +150,23 @@ func configuredSearchPaths(primary string, projectRoot string) []string {
 		add(path)
 	}
 
+	return items
+}
+
+func configuredGlobalSearchPaths(primary string, globalRoot string) []string {
+	items := make([]string, 0, 2)
+	seen := make(map[string]struct{})
+	for _, configuredPath := range []string{primary, alternateLocalAttrsPath(primary)} {
+		path := resolveConfiguredPath(globalRoot, configuredPath)
+		if path == "" {
+			continue
+		}
+		if _, ok := seen[path]; ok {
+			continue
+		}
+		seen[path] = struct{}{}
+		items = append(items, path)
+	}
 	return items
 }
 

@@ -1,0 +1,17 @@
+package process
+
+target(lang: golang)
+
+attrs (
+    "rpl:transport"
+    "rpl:validate"
+)
+
+@transport(os.bin)
+model User {
+    Id int @transport.id()
+    Name string @validate(min: 2, max: 64)
+
+    func Health return (string)
+    func Label return (string) @transport.Model()
+}
