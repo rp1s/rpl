@@ -2,7 +2,7 @@
   "name": "rpl-language-support",
   "displayName": "RPL Language Support",
   "description": "Полная IDE-интеграция RPL: генерация, диагностика, attrs, CodeLens, навигация и toolchain UX.",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "publisher": "rpl",
   "license": "Apache-2.0",
   "icon": "media/icon.png",
@@ -178,6 +178,13 @@
       }
     ],
     "menus": {
+      "explorer/context": [
+        {
+          "command": "rpl.compilePackage",
+          "group": "navigation@1",
+          "when": "resourceExtname == .rpl"
+        }
+      ],
       "editor/context": [
         {
           "submenu": "rpl.editor.menu",

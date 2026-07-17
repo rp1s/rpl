@@ -5,6 +5,7 @@
 ## UX и навигация
 
 - панель **RPL** в Explorer показывает схемы workspace, установленные attrs и состояние toolchain;
+- у каждого `.rpl` файла в стандартном Проводнике доступно действие **RPL: Compile Package**;
 - CodeLens над каждой моделью: **Generate package**, **Check schema**, **Docs**;
 - Outline и `Go to Symbol` видят package, target, модели и поля;
 - кнопки Generate и Check доступны в заголовке редактора;
