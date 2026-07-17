@@ -37,6 +37,7 @@ func TestFocusedAttrExamplesGenerate(t *testing.T) {
 		{name: "05-grpc", attrs: []string{"rpl:grpc", "rpl:std"}, expected: "syntax = \"proto3\""},
 		{name: "08-mongodb", attrs: []string{"rpl:mongodb", "rpl:std"}, expected: "CollectionName"},
 		{name: "09-transport", attrs: []string{"rpl:transport"}, expected: "TransportService interface"},
+		{name: "10-ffi", attrs: []string{"rpl:ffi"}, expected: "FFI_ABI_VERSION"},
 	}
 
 	built := make(map[string]struct{})

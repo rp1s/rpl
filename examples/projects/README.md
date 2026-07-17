@@ -13,6 +13,7 @@ against freshly generated code.
 | [session-cache](session-cache/README.md) | `redis`, `std`, `validate` | Redis keys, hash serialization, ignored fields, TTL boundary | generation + round-trip test |
 | [process-service](process-service/README.md) | `transport`, `validate` | one service exposed through os.bin, HTTP, Unix, NATS, Kafka, and WebSocket | clean generation + multi-transport integration tests |
 | [grpc-service](grpc-service/README.md) | `grpc`, `validate` | protobuf, typed gRPC adapters, validation-aware service, TCP server | generation + adapter tests |
+| [ffi-service](ffi-service/README.md) | `ffi` | C ABI, Rust server trait, Go/Python/C/Rust clients | generation + Go client seam + native generator tests |
 
 ## Run All Projects
 
@@ -21,7 +22,7 @@ From the repository root:
 ```bash
 make build-host
 
-for project in account-service session-cache process-service grpc-service; do
+for project in account-service session-cache process-service grpc-service ffi-service; do
   ./build/$(go env GOOS)-$(go env GOARCH)/rpl \
     run "examples/projects/$project/src/main.rpl" \
     out "examples/projects/$project/generated"

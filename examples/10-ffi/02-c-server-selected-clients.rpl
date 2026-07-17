@@ -1,0 +1,13 @@
+target(lang: ffi)
+
+attrs (
+    "rpl:ffi"
+)
+
+@ffi(server: "c", clients: "go,python", library: "counter", prefix: "counter")
+model CounterService {
+    Value int64
+
+    func Increment (amount int64) return (int64)
+    func Reset return (bool)
+}

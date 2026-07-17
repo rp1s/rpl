@@ -438,6 +438,7 @@ See [`examples/06-multifile`](examples/06-multifile) and
 | `rpl:redis` | 1.1.0 | Redis keys, hash storage, custom names, typed defaults, TTL |
 | `rpl:grpc` | 1.0.0 | `.proto`, protobuf Go, gRPC services, clients, conversions |
 | `rpl:transport` | 2.1.0 | shared service contracts, routing defaults, and six delivery adapters |
+| `rpl:ffi` | 1.1.0 | stable C ABI, C/Rust servers, Go/Python/C/Rust clients, cgo-free purego mode |
 
 ### `rpl:std`
 
@@ -586,6 +587,41 @@ Identity and model-bound semantics continue to use `@transport.id()` and
 `@transport.Model()`. Omitting a mode remains equivalent to `os.bin`.
 See the complete [`transport attr guide`](src/attrs/rpl:transport/README.md) and
 [`multi-transport project`](examples/projects/process-service/README.md).
+
+### `rpl:ffi`
+
+FFI turns model methods into a versioned in-process ABI:
+
+```rpl
+target(lang: ffi)
+
+@ffi(server: "rust", clients: "go,python,c,rust", library: "calculator")
+model CalculatorService {
+    func Add (left int64, right int64) return (int64)
+    func Stats return (int64, float64)
+}
+```
+
+`target(lang: ffi)` is artifact-only: it suppresses the compiler's host
+`model.gen.go`. A selected Go client still gets its own self-contained binding
+under `ffi/go`; use `target(lang: golang)` only when a separate Go domain model
+is intentionally required alongside the ABI.
+
+The generated C header defines borrowed views, owned buffers, status codes,
+the model layout, service callback vtable, and stable call/free symbols. Method
+payloads use UTF-8 JSON so lists, optional values, nested models, and future
+fields do not depend on a language-specific object layout.
+
+Rust servers receive typed request/response structures and an `FFIService`
+trait. C servers implement the generated callback vtable. Go receives a
+testable `NativeABI` client, a cgo-free
+[`purego`](https://github.com/ebitengine/purego) dynamic loader, and an optional
+cgo implementation; Python uses `ctypes`; C and Rust clients call the same
+header contract. Build the pure-Go mode with
+`CGO_ENABLED=0 -tags rpl_ffi_purego`.
+
+See the complete [`FFI attr guide`](src/attrs/rpl:ffi/README.md) and
+[`FFI examples`](examples/10-ffi/README.md).
 
 ## CLI reference
 
@@ -879,6 +915,7 @@ Extension source and additional documentation live in
 | `07-imports` | importing another RPL schema |
 | `08-mongodb` | ObjectID/BSON conversion, sparse indexes, search/sort, CRUD/watch |
 | `09-transport` | six adapters, multi-routing, subjects, method-only services |
+| `10-ffi` | C ABI, C/Rust servers, Go/Python/C/Rust clients |
 | `99-showcase` | end-to-end combinations of built-in attrs |
 | `projects` | standalone Go modules with app code, commands, and tests |
 
@@ -899,12 +936,13 @@ For realistic application structure, start with the
 | `session-cache` | Redis key/hash codec, ignored fields, validation | cache entry boundary and round-trip tests |
 | `process-service` | os.bin, HTTP, Unix, NATS, Kafka, WebSocket adapters | concurrency-safe user service and protocol tests |
 | `grpc-service` | protobuf, gRPC client/server adapters, validation | in-memory domain service and TCP server |
+| `ffi-service` | C ABI, Rust server trait, four client languages | generated Go client seam and native ABI contract |
 
 Each project contains its own `.rpl/config.xml`, `go.mod`, `cmd/`, `internal/`,
 README, and tests. Generated files are excluded so CI proves they can always be
 recreated from the schema.
 
-The seven plugin cookbook folders contain 36 focused schemas. Every folder has
+The eight plugin cookbook folders contain focused schemas. Every folder has
 a feature-matrix README, and the compiler test suite regenerates every schema
 in isolation so examples cannot silently become stale.
 
@@ -925,7 +963,8 @@ in isolation so examples cannot silently become stale.
 │   │   ├── rpl:mongodb/
 │   │   ├── rpl:redis/
 │   │   ├── rpl:grpc/
-│   │   └── rpl:transport/
+│   │   ├── rpl:transport/
+│   │   └── rpl:ffi/
 │   ├── cmd/                     CLI and fingerprint tools
 │   ├── internal/
 │   │   ├── cli/                 command implementations

@@ -674,6 +674,40 @@ model User {
 	}
 }
 
+func TestRunFileSwitchingToFFITargetRemovesStaleHostModel(t *testing.T) {
+	service := New()
+	projectDir := t.TempDir()
+	sourcePath := filepath.Join(projectDir, "main.rpl")
+
+	golangSchema := `target(lang: golang)
+
+model Calculator {
+    Value int64
+}
+`
+	if err := os.WriteFile(sourcePath, []byte(golangSchema), 0o644); err != nil {
+		t.Fatalf("write Go target schema: %v", err)
+	}
+	if _, err := service.RunFile(sourcePath); err != nil {
+		t.Fatalf("generate Go target: %v", err)
+	}
+	hostModel := filepath.Join(projectDir, "models", "calculator", "model.gen.go")
+	if _, err := os.Stat(hostModel); err != nil {
+		t.Fatalf("expected initial host model: %v", err)
+	}
+
+	ffiSchema := strings.Replace(golangSchema, "target(lang: golang)", "target(lang: ffi)", 1)
+	if err := os.WriteFile(sourcePath, []byte(ffiSchema), 0o644); err != nil {
+		t.Fatalf("write FFI target schema: %v", err)
+	}
+	if _, err := service.RunFile(sourcePath); err != nil {
+		t.Fatalf("generate FFI target: %v", err)
+	}
+	if _, err := os.Stat(hostModel); !os.IsNotExist(err) {
+		t.Fatalf("stale host model was not removed: %v", err)
+	}
+}
+
 func TestRunFileUsesModelSpecificHelpersInModelsPackage(t *testing.T) {
 	service := New()
 	projectDir := t.TempDir()

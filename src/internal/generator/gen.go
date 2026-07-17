@@ -153,7 +153,11 @@ func (gen *Generator) Run() error {
 	}
 	if len(types) > 0 {
 		currentModels[defaultTypesKey] = struct{}{}
-		if err := gen.writeTypes(renderer, outputDir, manifest); err != nil {
+		if targetpkg.EmitsHostModel(renderer) {
+			if err := gen.writeTypes(renderer, outputDir, manifest); err != nil {
+				return err
+			}
+		} else if err := gen.replaceModelFiles(outputDir, manifest, defaultTypesKey, "", nil); err != nil {
 			return err
 		}
 	}
@@ -179,14 +183,16 @@ func (gen *Generator) Run() error {
 
 		if model.GeneratedFrom != "" {
 			response := builder.Response()
-			body, err := gen.renderModelPackageFile(renderer, layout.ModelPackage, response)
-			if err != nil {
-				return fmt.Errorf(localize.Text("рендеринг файла для target %q: %w", "render file for target %q: %w"), targetLang, err)
-			}
+			if targetpkg.EmitsHostModel(renderer) {
+				body, err := gen.renderModelPackageFile(renderer, layout.ModelPackage, response)
+				if err != nil {
+					return fmt.Errorf(localize.Text("рендеринг файла для target %q: %w", "render file for target %q: %w"), targetLang, err)
+				}
 
-			outputPath := filepath.Join(layout.ModelDir, layout.ModelFileName)
-			if err := fsutil.WriteFile(outputPath, body, 0o644); err != nil {
-				return fmt.Errorf(localize.Text("запись сгенерированного файла %q: %w", "write generated file %q: %w"), outputPath, err)
+				outputPath := filepath.Join(layout.ModelDir, layout.ModelFileName)
+				if err := fsutil.WriteFile(outputPath, body, 0o644); err != nil {
+					return fmt.Errorf(localize.Text("запись сгенерированного файла %q: %w", "write generated file %q: %w"), outputPath, err)
+				}
 			}
 
 			facadeFiles, err := gen.writeFacadeFile(renderer, layout, model, response)
@@ -236,14 +242,16 @@ func (gen *Generator) Run() error {
 		}
 
 		response := builder.Response()
-		body, err := gen.renderModelPackageFile(renderer, layout.ModelPackage, response)
-		if err != nil {
-			return fmt.Errorf(localize.Text("рендеринг файла для target %q: %w", "render file for target %q: %w"), targetLang, err)
-		}
+		if targetpkg.EmitsHostModel(renderer) {
+			body, err := gen.renderModelPackageFile(renderer, layout.ModelPackage, response)
+			if err != nil {
+				return fmt.Errorf(localize.Text("рендеринг файла для target %q: %w", "render file for target %q: %w"), targetLang, err)
+			}
 
-		outputPath := filepath.Join(layout.ModelDir, layout.ModelFileName)
-		if err := fsutil.WriteFile(outputPath, body, 0o644); err != nil {
-			return fmt.Errorf(localize.Text("запись сгенерированного файла %q: %w", "write generated file %q: %w"), outputPath, err)
+			outputPath := filepath.Join(layout.ModelDir, layout.ModelFileName)
+			if err := fsutil.WriteFile(outputPath, body, 0o644); err != nil {
+				return fmt.Errorf(localize.Text("запись сгенерированного файла %q: %w", "write generated file %q: %w"), outputPath, err)
+			}
 		}
 
 		facadeFiles, err := gen.writeFacadeFile(renderer, layout, model, response)
@@ -294,7 +302,7 @@ func (gen *Generator) prepare() (string, targetpkg.Renderer, []*ast.ModelAST, st
 	renderer, ok := targetpkg.Lookup(targetLang)
 	if !ok {
 		return "", nil, nil, "", rplerr.Newf(localize.Text("неподдерживаемый target language %q", "unsupported target language %q"), targetLang).
-			WithHint(localize.Text("Сейчас поддерживается `golang`. Пример: `target(lang: golang)`.", "Right now `golang` is supported. Example: `target(lang: golang)`."))
+			WithHint(localize.Text("Поддерживаются `golang` и artifact-only `ffi`.", "Supported targets are `golang` and artifact-only `ffi`."))
 	}
 
 	models := gen.File.Models()

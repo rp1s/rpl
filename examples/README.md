@@ -30,8 +30,9 @@ sense on specific transports.
 - `07-imports` - importing another `.rpl` file
 - `08-mongodb` - ObjectID, sparse/unique indexes, BSON names, search/sort, CRUD/watch helpers
 - `09-transport` - six adapters, multi-adapter, subject binding, and method-only services
+- `10-ffi` - stable C ABI, C/Rust servers, and Go/Python/C/Rust clients
 - `99-showcase` - large end-to-end examples
-- `projects` - four complete applications that are regenerated and compiled in CI
+- `projects` - five complete applications that are regenerated and compiled in CI
 
 ## Choose the Right Starting Point
 
@@ -50,6 +51,7 @@ sense on specific transports.
 | Split one package across files | `06-multifile/main.rpl` |
 | Build local process IPC | `09-transport/01-os-bin-service.rpl` then `projects/process-service` |
 | Expose only selected transport methods | `09-transport/09-method-only-adapters.rpl` |
+| Build a native cross-language library | `10-ffi/01-rust-server-all-clients.rpl` |
 | Inspect most features together | `99-showcase/main.rpl` |
 
 ## Run An Example
@@ -59,6 +61,7 @@ From the repository root:
 ```bash
 go -C src run ./cmd run ../examples/05-grpc/01-basic-service.rpl out /tmp/rpl-out
 go -C src run ./cmd run ../examples/09-transport/01-os-bin-service.rpl out /tmp/rpl-transport
+go -C src run ./cmd run ../examples/10-ffi/01-rust-server-all-clients.rpl out /tmp/rpl-ffi
 ```
 
 For package-based examples, run the main file in that folder:
@@ -86,7 +89,7 @@ Run the clean-room lifecycle for all full projects:
 make test-projects
 ```
 
-Generate all 36 focused plugin schemas and compile all four full projects:
+Generate every focused plugin schema and compile all full projects:
 
 ```bash
 make test-examples
@@ -98,7 +101,7 @@ generator, while a clean-room project test proves schema, config, attrs, module
 imports, generated code, and handwritten consumers still agree.
 
 `TestFocusedAttrExamplesGenerate` separately copies and generates every `.rpl`
-file from the seven plugin cookbook folders. This keeps even the small examples
+file from the eight plugin cookbook folders. This keeps even the small examples
 executable instead of treating them as unchecked documentation snippets.
 
 ## Global Attr Setup for Examples
@@ -130,6 +133,8 @@ priority than the global one.
 - The `transport` examples cover six adapters. Repeated model-level attrs
   generate several clients/servers around one service interface; method-level
   modes restrict individual operations to one adapter.
+- The `ffi` examples generate a canonical header plus selected server/client
+  languages. Rust, C, Python, and Go syntax are verified by plugin tests.
 - Do not edit generated `*.gen.go` or `.proto` files. Change the schema, rerun
   RPL, and keep handwritten policy inside `internal/` or `cmd/`.
 - Every full project README explains the generated API, testing boundary,

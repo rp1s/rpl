@@ -18,6 +18,14 @@ type Renderer interface {
 	RenderFile(response sdk.GenerateResponse) ([]byte, error)
 }
 
+// HostModelRenderer lets artifact-only targets opt out of the compiler-owned
+// model file while still receiving attr-generated files. Renderers that do not
+// implement it keep the historical behavior and emit a host model.
+type HostModelRenderer interface {
+	Renderer
+	EmitsHostModel() bool
+}
+
 // StructuredRenderer extends the legacy renderer contract with a layout that is
 // friendlier for generated code: one folder per model, optional root facades,
 // and explicit per-model package names.
@@ -74,6 +82,16 @@ func Lookup(name string) (Renderer, bool) {
 	return renderer, ok
 }
 
+func EmitsHostModel(renderer Renderer) bool {
+	if renderer == nil {
+		return false
+	}
+	if optional, ok := renderer.(HostModelRenderer); ok {
+		return optional.EmitsHostModel()
+	}
+	return true
+}
+
 func NormalizeLanguage(name string) string {
 	normalized := strings.ToLower(strings.TrimSpace(name))
 	if normalized == "" {
@@ -100,7 +118,10 @@ func ResolveModelLayout(renderer Renderer, modelName string) ModelLayout {
 	layout.ModelDirName = structured.ModelDirName(modelName)
 	layout.ModelPackage = structured.ModelPackageName(modelName)
 	layout.ModelFileName = structured.ModelFileName(modelName)
-	layout.MainRelative = normalizeOutputPath(filepath.Join(layout.ModelDirName, layout.ModelFileName))
+	layout.MainRelative = ""
+	if strings.TrimSpace(layout.ModelFileName) != "" {
+		layout.MainRelative = normalizeOutputPath(filepath.Join(layout.ModelDirName, layout.ModelFileName))
+	}
 	layout.FacadeFileName = structured.FacadeFileName(modelName)
 	layout.FacadeRelative = normalizeOutputPath(layout.FacadeFileName)
 	return layout

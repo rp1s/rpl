@@ -70,6 +70,16 @@ func TestProjectExamplesGenerateAndCompile(t *testing.T) {
 				"generated/user/grpc/client.gen.go": {"func NewUserGRPCClient"},
 			},
 		},
+		{
+			name:  "ffi-service",
+			attrs: []string{"rpl:ffi"},
+			expected: map[string][]string{
+				"generated/calculator_service/ffi/calculator_service.h":    {"CALCULATOR_FFI_ABI_VERSION", "calculator_ffi_server_call_bytes"},
+				"generated/calculator_service/ffi/go/client.gen.go":        {"type NativeABI interface", "func (client *Client) Add"},
+				"generated/calculator_service/ffi/go/native_purego.gen.go": {"type PureGoNative struct", "func OpenPureGoFromFactory"},
+				"generated/calculator_service/ffi/rust/src/lib.rs":         {"pub trait FFIService", "exported_ffi_server_call_bytes"},
+			},
+		},
 	}
 
 	built := make(map[string]struct{})
@@ -97,6 +107,12 @@ func TestProjectExamplesGenerateAndCompile(t *testing.T) {
 				path := filepath.Join(projectDir, filepath.FromSlash(relativePath))
 				for _, fragment := range fragments {
 					assertFileContains(t, path, fragment)
+				}
+			}
+			if test.name == "ffi-service" {
+				hostModel := filepath.Join(projectDir, "generated", "calculator_service", "model.gen.go")
+				if _, err := os.Stat(hostModel); !os.IsNotExist(err) {
+					t.Fatalf("artifact-only FFI target generated unexpected host model %s", hostModel)
 				}
 			}
 
