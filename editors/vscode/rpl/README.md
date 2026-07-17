@@ -48,7 +48,8 @@
 - `rpl.enableDiagnostics` - живая диагностика;
 - `rpl.enableCompletions` - completion provider;
 - `rpl.autoSetImportsOnSave` - attrs и imports при сохранении;
-- `rpl.formatOnSave` - форматирование при сохранении;
+- `rpl.formatOnSave` - форматирование при сохранении; выбранная форма attrs
+  сохраняется (`Field T @attr(...)` или отдельный `{ ... }` блок);
 - `rpl.enableCodeLens` - действия над моделями;
 - `rpl.showStatusBar` - состояние RPL в status bar;
 - `rpl.enableTaskProvider` - автоматические VS Code Tasks.

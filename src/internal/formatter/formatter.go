@@ -145,9 +145,16 @@ func renderField(field *ast.FieldAST) string {
 	if len(field.Attrs) == 0 && len(field.Methods) == 0 {
 		return header
 	}
+	if len(field.Attrs) > 0 && !field.AttrsBlock {
+		attrs := make([]string, 0, len(field.Attrs))
+		for _, attr := range field.Attrs {
+			attrs = append(attrs, renderAttr(attr))
+		}
+		header += " " + strings.Join(attrs, " ")
+	}
 
 	lines := []string{header}
-	if len(field.Attrs) > 0 {
+	if len(field.Attrs) > 0 && field.AttrsBlock {
 		lines = append(lines, "{")
 		for _, attr := range field.Attrs {
 			lines = append(lines, indent(renderAttr(attr)))

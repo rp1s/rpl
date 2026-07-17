@@ -1752,7 +1752,10 @@ attrs (
 
 @sql(db: "postgres", table: "users")
 model User {
-	    ID int @sql(primaryKey: true)
+	ID int {
+		@sql(index: true)
+		@sql(primaryKey: true)
+	}
     Email string @sql(unique: true)
     Name string @sql(index: true)
     CreatedAt time.Time @sql(default: "now")

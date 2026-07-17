@@ -58,6 +58,7 @@ func (parser *Parser) parseFieldAST() (*ast.FieldAST, *Err.Error) {
 				return nil, err
 			}
 			field.Attrs = append(field.Attrs, attrs...)
+			field.AttrsBlock = true
 			parsedBlock = true
 		case token.LPAREN:
 			if parsedMethods {

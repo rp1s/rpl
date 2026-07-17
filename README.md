@@ -608,7 +608,9 @@ rpl fmt <file.rpl>
 rpl format <file.rpl>
 ```
 
-Formats the schema in place using the compiler formatter.
+Formats the schema in place using the compiler formatter. Field attr layout is
+kept intentionally flexible: inline attrs remain inline, while `{ ... }` attr
+blocks remain blocks. Use the form that is clearer for each field.
 
 ### Automatic imports and attrs
 

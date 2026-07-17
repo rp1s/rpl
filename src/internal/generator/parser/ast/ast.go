@@ -46,12 +46,13 @@ type TypeAliasAST struct {
 func (*TypeAliasAST) astNode() {}
 
 type FieldAST struct {
-	Position token.Position
-	Name     string
-	Type     TypeRef
-	Default  Expr
-	Attrs    []Attr
-	Methods  []FieldMethodAST
+	Position   token.Position
+	Name       string
+	Type       TypeRef
+	Default    Expr
+	Attrs      []Attr
+	AttrsBlock bool
+	Methods    []FieldMethodAST
 }
 
 type FieldExtensionAST struct {
